@@ -20,7 +20,10 @@ function getUidFromHeader(req: functions.https.Request): string | null {
   }
   return auth.split("Bearer ")[1];
 }
-
+interface ParserResponse {
+  ok: boolean;
+  text(): Promise<string>;
+}
 export const parseUpload = functions.https.onRequest(
   async (req, res) => {
     const uid = getUidFromHeader(req);
