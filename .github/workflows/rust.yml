@@ -18,5 +18,5 @@ jobs:
           override: true
 
       - name: Run parser tests
-        working-directory: web/parser
+        working-directory: parser
         run: cargo test --all-features
