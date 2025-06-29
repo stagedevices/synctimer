@@ -4,7 +4,7 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import fetch from "node-fetch";
 import cors from "cors";
-import { FieldValue } from "firebase-admin/firestore";
+import {FieldValue} from "firebase-admin/firestore";
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -12,8 +12,8 @@ const db = admin.firestore();
 // helper to pull the UID out of your Authorization header
 function getUidFromHeader(req: functions.https.Request): string | null {
   const auth = req.get("Authorization") || "";
-  const match = auth.match(/^Bearer (.+)$/);
-  return match ? match[1] : null;
+  const m = auth.match(/^Bearer (.+)$/);
+  return m ? m[1] : null;
 }
 
 // CORS middleware: allow POST + OPTIONS, our two custom headers, any origin
@@ -37,7 +37,7 @@ export const parseUpload = functions.https.onRequest((req, res) => {
         "https://parser-service-156574509593.us-central1.run.app/parse",
         {
           method: "POST",
-          headers: { "Content-Type": "application/xml" },
+          headers: {"Content-Type": "application/xml"},
           body: xml,
         }
       );
