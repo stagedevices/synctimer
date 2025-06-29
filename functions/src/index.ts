@@ -25,7 +25,7 @@ export const parseUpload = functions.https.onRequest(
   async (req, res) => {
     const uid = getUidFromHeader(req);
     const xml = req.rawBody;
-    let parserRes: Response;
+    let parserRes: any;
     let yaml: string;
 
     try {
