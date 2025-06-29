@@ -7,13 +7,17 @@ admin.initializeApp();
 const db = admin.firestore();
 
 /**
- * Helper to extract a UID from your Authorization header.
- * In production you’d verify an ID token via admin.auth().verifyIdToken(token),
- * but for now this just uses the raw “Bearer <uid>” you pass in.
+ * Extracts a UID from `Authorization: Bearer <token>`.
+ * In prod you'd verify with `admin.auth().verifyIdToken()`.
+ *
+ * @param {functions.https.Request} req the incoming HTTP request
+ * @return {string|null} the raw bearer token or null
  */
 function getUidFromHeader(req: functions.https.Request): string | null {
   const auth = req.get("Authorization");
-  if (!auth || !auth.startsWith("Bearer ")) return null;
+  if (!auth || !auth.startsWith("Bearer ")) {
+    return null;
+  }
   return auth.split("Bearer ")[1];
 }
 
@@ -21,7 +25,8 @@ export const parseUpload = functions.https.onRequest(
   async (req, res) => {
     const uid = getUidFromHeader(req);
     const xml = req.rawBody;
-    let parserRes, yaml: string;
+    let parserRes: Response;
+    let yaml: string;
 
     try {
       // 1) Call the parser service
@@ -46,8 +51,9 @@ export const parseUpload = functions.https.onRequest(
 
       // 3) If successful, store the YAML under /users/{uid}/files
       if (parserRes.ok && uid) {
-        const filename =
-          req.get("X-File-Name")?.replace(/\.xml$/i, ".yaml") || "out.yaml";
+        const filename = req
+          .get("X-File-Name")
+          ?.replace(/\.xml$/i, ".yaml") || "out.yaml";
 
         await db
           .collection("users")
@@ -64,17 +70,20 @@ export const parseUpload = functions.https.onRequest(
 
       // 4) Return the YAML (or error) to the client
       res.status(parserRes.ok ? 200 : 500).send(yaml);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
       console.error("parseUpload error:", err);
+
       // Log the failure in parseLogs too
       await db.collection("parseLogs").add({
         user: uid,
         timestamp: FieldValue.serverTimestamp(),
         status: "error",
         inputSize: xml.length,
-        errorMessage: err.message,
+        errorMessage: message,
       });
-      res.status(500).send(err.message);
+
+      res.status(500).send(message);
     }
   }
 );
