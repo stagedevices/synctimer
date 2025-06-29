@@ -63,10 +63,14 @@ export function UploadValidate() {
     if (match) setFilename(match[1] + '.yaml');
   }, [xmlText]);
 
-  const handleValidate = useCallback(async () => {
-  console.log("🚀 handleValidate start", { xmlLength: xmlText.length, filename, uid: auth.currentUser?.uid });
-  alert("handleValidate called");                // <-- quick popup to confirm click
-  const user = auth.currentUser;
+  const handleValidate = async () => {
+    console.log("🚀 handleValidate start", {
+      xmlLength: xmlText.length,
+      filename,
+      uid: auth.currentUser?.uid,
+    });
+    alert("🔔 handleValidate called");
+    const user = auth.currentUser;
   if (!user) {
     message.error("You must be signed in to validate files.");
     return;
@@ -179,7 +183,7 @@ export function UploadValidate() {
                 onClick={handleValidate}
                 onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.03)')}
                 onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-                /* disabled={!xmlText.trim()}  <-- remove this temporarily */
+                disabled={!xmlText.trim()}
               >
                 Validate XML
               </Button>
