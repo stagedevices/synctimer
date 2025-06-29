@@ -1,15 +1,9 @@
 name: Rust Tests
-
 on: [push, pull_request]
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    # all run steps below execute inside `parser/`
-    defaults:
-      run:
-        working-directory: parser
-
     steps:
       - uses: actions/checkout@v4
 
@@ -18,4 +12,5 @@ jobs:
           toolchain: stable
           override: true
 
-      - run: cargo test --workspace --all-features
+      - name: Run parser tests
+        run: cargo test --manifest-path=parser/Cargo.toml --all-features
