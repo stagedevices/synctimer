@@ -28,7 +28,7 @@ export const parseUpload = functions.https.onRequest(
           errorMessage: parserRes.ok ? null : yaml,
         });
       res.status(parserRes.ok ? 200 : 500).send(yaml);
-    } catch (err) {
+    } catch (err :any) {
       console.error(err);
       res.status(500).send(err.message);
     }
