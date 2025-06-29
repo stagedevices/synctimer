@@ -1,19 +1,34 @@
-use std::{fs, path::PathBuf};
-use clap::Parser;
+use std::{convert::Infallible, env};
+use warp::Filter;
 
-/// Simple MusicXML→YAML exporter
-#[derive(Parser)]
-#[command(author, version, about)]
-struct Args {
-    /// Path to a MusicXML file
-    input: PathBuf,
+#[tokio::main]
+async fn main() {
+    // Read the PORT env var (default to 8080)
+    let port: u16 = env::var("PORT")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(8080);
+
+    // POST /parse with raw XML in body
+    let parse_route = warp::post()
+        .and(warp::path("parse"))
+        .and(warp::body::bytes())
+        .and_then(handle_parse);
+
+    println!("Server listening on 0.0.0.0:{}", port);
+    warp::serve(parse_route)
+        .run(([0, 0, 0, 0], port))
+        .await;
 }
 
-fn main() -> anyhow::Result<()> {
-    let args = Args::parse();
-    let xml = fs::read_to_string(&args.input)?;
-    let events = parser::parse_musicxml(&xml)?;
-    let yaml = parser::to_yaml(&events)?;
-    println!("{yaml}");
-    Ok(())
+async fn handle_parse(body: bytes::Bytes) -> Result<impl warp::Reply, Infallible> {
+    let xml = std::str::from_utf8(&body).unwrap_or("");
+    let result = match parser::parse_musicxml(xml) {
+        Ok(events) => match parser::to_yaml(&events) {
+            Ok(yaml) => warp::reply::with_status(yaml, warp::http::StatusCode::OK),
+            Err(e) => warp::reply::with_status(e.to_string(), warp::http::StatusCode::INTERNAL_SERVER_ERROR),
+        },
+        Err(e) => warp::reply::with_status(e.to_string(), warp::http::StatusCode::BAD_REQUEST),
+    };
+    Ok(result)
 }
