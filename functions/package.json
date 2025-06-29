@@ -15,8 +15,8 @@
   "engines": {
     "node": "22"
   },
-  "main": "lib/index.js",
   "dependencies": {
+    "cors": "^2.8.5",
     "firebase-admin": "^12.7.0",
     "firebase-functions": "^6.3.2",
     "node-fetch": "^2.7.0"
@@ -34,7 +34,6 @@
     "typescript": "^5.8.3"
   },
   "private": true,
-  "version": "1.0.0",
   "keywords": [],
   "author": "",
   "license": "ISC",
