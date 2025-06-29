@@ -1,7 +1,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import fetch from "node-fetch";
-import { FieldValue } from "firebase-admin/firestore";
+import {FieldValue} from "firebase-admin/firestore";
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -25,7 +25,7 @@ export const parseUpload = functions.https.onRequest(
   async (req, res) => {
     const uid = getUidFromHeader(req);
     const xml = req.rawBody;
-    let parserRes: any;
+    let parserRes: ParserResponse;
     let yaml: string;
 
     try {
@@ -34,7 +34,7 @@ export const parseUpload = functions.https.onRequest(
         "https://parser-service-156574509593.us-central1.run.app/parse",
         {
           method: "POST",
-          headers: { "Content-Type": "application/xml" },
+          headers: {"Content-Type": "application/xml"},
           body: xml,
         }
       );
