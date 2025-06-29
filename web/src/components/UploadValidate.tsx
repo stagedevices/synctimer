@@ -64,18 +64,9 @@ export function UploadValidate() {
   }, [xmlText]);
 
   const handleValidate = async () => {
-    console.log("🚀 handleValidate start", {
-      xmlLength: xmlText.length,
-      filename,
-      uid: auth.currentUser?.uid,
-    });
-    alert("🔔 handleValidate called");
+    // TEMPORARILY allow anonymous parsing until we wire up real auth:
     const user = auth.currentUser;
-  if (!user) {
-    message.error("You must be signed in to validate files.");
-    return;
-  }
-  const uid = user.uid;
+    const uid = user?.uid ?? "anonymous";
     // Large file warning
     if (xmlText.length > 1_000_000) {
       message.warning("Large file detected—this may take a while", 5);
