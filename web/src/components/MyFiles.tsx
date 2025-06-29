@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Card, List, Spin, Button } from "antd";
 import { DownloadOutlined } from "@ant-design/icons";
-import { db } from "../lib/firebase";
+import { db, auth } from "../lib/firebase";
 import {
   collection,
   query,
