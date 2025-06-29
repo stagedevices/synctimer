@@ -6,7 +6,7 @@ import { materialLight } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Card, Button, Row, Col, Input, Switch, message, Alert, Spin } from "antd";
 import { SunOutlined, MoonOutlined, CopyOutlined, DownloadOutlined } from "@ant-design/icons";
 import { saveAs } from "file-saver";
-import { db, auth } from "../lib/firebase";
+import { auth } from "../lib/firebase";
 
 // Glassmorphic card style
 const glassStyle: React.CSSProperties = {
