@@ -11,16 +11,17 @@ const db = admin.firestore();
 
 // helper to pull the UID out of your Authorization header
 /**
- * Extracts the UID out of the incoming request’s “Authorization: Bearer <uid>” header.
- * @param req The HTTPS request object.
- * @returns The raw UID string if present, otherwise null.
+ * Extracts the UID out of the incoming request’s
+ * “Authorization: Bearer <uid>” header.
+ *
+ * @param {functions.https.Request} req The HTTPS request object.
+ * @return {string|null} The UID if present; otherwise null.
  */
 function getUidFromHeader(req: functions.https.Request): string | null {
   const auth = req.get("Authorization") || "";
   const m = auth.match(/^Bearer (.+)$/);
   return m ? m[1] : null;
 }
-
 
 // CORS middleware: allow POST + OPTIONS, our two custom headers, any origin
 const corsHandler = cors({
