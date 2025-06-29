@@ -1,74 +1,95 @@
-import React from "react";
-import { useAuthState }  from "react-firebase-hooks/auth";
-import { useCollection } from "react-firebase-hooks/firestore";
-import { auth, db }      from "../lib/firebase";
+// src/components/MyFiles.tsx
+import { useEffect, useState } from "react";
+import { Card, List, Spin, Button } from "antd";
+import { DownloadOutlined } from "@ant-design/icons";
+import { db } from "../lib/firebase";
 import {
   collection,
   query,
-  orderBy
+  orderBy,
+  onSnapshot,
+  Timestamp
 } from "firebase/firestore";
-import { Card, List, Spin, Button } from "antd";
-import { DownloadOutlined }         from "@ant-design/icons";
-import { saveAs }                   from "file-saver";
+
+interface FileRecord {
+  id: string;
+  title: string;
+  yaml: string;
+  createdAt: Timestamp;
+  size: number;
+  status: string;
+}
 
 export function MyFiles() {
-  const [user, loadingAuth] = useAuthState(auth);
+  // TEMP: sandbox UID if nobody signed in
+  const uid = "TEST_UID";
 
-  // **Sandbox fallback**: if not signed-in, use this test UID.
-  // Replace "TEST_UID" with a real one if you already have a document in Firestore.
-  const uid = user?.uid || "TEST_UID";
+  const [files, setFiles] = useState<FileRecord[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Now always construct a query — even if you're technically “unsigned”
-  const filesQuery = query(
-    collection(db, "users", uid, "files"),
-    orderBy("createdAt", "desc")
-  );
+  useEffect(() => {
+    const q = query(
+      collection(db, "users", uid, "files"),
+      orderBy("createdAt", "desc")
+    );
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const docs = snap.docs.map((d) => ({
+          id: d.id,
+          ...(d.data() as Omit<FileRecord, "id">),
+        }));
+        setFiles(docs);
+        setLoading(false);
+      },
+      (err) => {
+        console.error("MyFiles:onSnapshot error", err);
+        setLoading(false);
+      }
+    );
+    return unsub;
+  }, [uid]);
 
-  const [snapshot, loadingFiles, error] = useCollection(filesQuery);
-
-  if (loadingAuth || loadingFiles) {
-    return <Spin tip="Loading your files…" style={{ margin: "2rem" }} />;
-  }
-
-  if (error) {
-    return <Card type="error" style={{ margin: "2rem" }}>{error.message}</Card>;
-  }
-
-  const docs = snapshot?.docs ?? [];
+  if (loading) return <Spin tip="Loading your files…" />;
 
   return (
-    <Card title={`My Files (${uid === "TEST_UID" ? "Sandbox" : user?.email})`} style={{ margin: "2rem" }}>
-      {docs.length === 0 ? (
+    <Card title={`My Files (Sandbox: ${uid})`}>
+      {files.length === 0 ? (
         <div>No files yet — go validate one on the Validate page.</div>
       ) : (
         <List
           itemLayout="horizontal"
-          dataSource={docs}
-          renderItem={(doc) => {
-            const { title, yaml, createdAt, size, status } = doc.data() as any;
-            return (
-              <List.Item
-                actions={[
-                  <Button
-                    icon={<DownloadOutlined />}
-                    onClick={() =>
-                      saveAs(
-                        new Blob([yaml], { type: "text/yaml" }),
-                        title
-                      )
-                    }
-                  >
-                    Download
-                  </Button>
-                ]}
-              >
-                <List.Item.Meta
-                  title={title}
-                  description={`Status: ${status} · ${createdAt?.toDate().toLocaleString()} · ${size} bytes`}
-                />
-              </List.Item>
-            );
-          }}
+          dataSource={files}
+          renderItem={(f) => (
+            <List.Item
+              actions={[
+                <Button
+                  key="dl"
+                  icon={<DownloadOutlined />}
+                  onClick={() => {
+                    const blob = new Blob([f.yaml], {
+                      type: "text/yaml;charset=utf-8",
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = f.title;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  Download
+                </Button>,
+              ]}
+            >
+              <List.Item.Meta
+                title={f.title}
+                description={`${f.status} · ${f.size} bytes · ${f.createdAt
+                  .toDate()
+                  .toLocaleString()}`}
+              />
+            </List.Item>
+          )}
         />
       )}
     </Card>
