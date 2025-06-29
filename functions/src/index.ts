@@ -19,7 +19,7 @@ function getUidFromHeader(req: functions.https.Request): string | null {
 export const parseUpload = functions.https.onRequest((req, res) => {
   corsHandler(req, res, async () => {
     const uid = getUidFromHeader(req);
-    const xml = req.rawBody!;  // rawBody is present on functions.https.Request
+    const xml = req.rawBody!;
     let yaml: string;
     let parserRes: Response;
 
@@ -37,17 +37,17 @@ export const parseUpload = functions.https.onRequest((req, res) => {
 
       // 2) log parseLogs
       await db.collection("parseLogs").add({
-        user:         uid,
-        timestamp:    FieldValue.serverTimestamp(),
-        status:       parserRes.ok ? "success" : "error",
-        inputSize:    xml.length,
+        user: uid,
+        timestamp: FieldValue.serverTimestamp(),
+        status: parserRes.ok ? "success" : "error",
+        inputSize: xml.length,
         errorMessage: parserRes.ok ? null : yaml,
       });
 
       // 3) store under users/{uid}/files
       if (parserRes.ok && uid) {
         const rawName = req.get("X-File-Name") || "out.xml";
-        const title   = rawName.replace(/\.xml$/i, ".yaml");
+        const title = rawName.replace(/\.xml$/i, ".yaml");
 
         await db
           .collection("users")
@@ -69,10 +69,10 @@ export const parseUpload = functions.https.onRequest((req, res) => {
       const msg = e instanceof Error ? e.message : String(e);
       // log failure
       await db.collection("parseLogs").add({
-        user:         uid,
-        timestamp:    FieldValue.serverTimestamp(),
-        status:       "error",
-        inputSize:    xml?.length ?? 0,
+        user: uid,
+        timestamp: FieldValue.serverTimestamp(),
+        status: "error",
+        inputSize: xml?.length ?? 0,
         errorMessage: msg,
       });
       res.status(500).send(msg);
