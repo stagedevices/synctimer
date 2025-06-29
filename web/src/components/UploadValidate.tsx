@@ -81,8 +81,11 @@ export function UploadValidate() {
       const start = performance.now();
       const blob = new Blob([xmlText], { type: "application/xml" });
       // Exponential backoff on transient errors
-      const result = await retry(() => parseUpload(blob), 3, 500);
-      setYaml(result);
+      const result = await retry(
+        () => parseUpload(blob, filename, uid),
+        3,
+        500
+      );      setYaml(result);
       const duration = ((performance.now() - start) / 1000).toFixed(2);
       message.success(`Parsed in ${duration}s`, 3);
     } catch (err: any) {
