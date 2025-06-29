@@ -1,96 +1,83 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { fetch } from "undici";
-import cors from "cors";
+import * as cors from "cors";
+import type { Request, Response } from "express";
 import { FieldValue } from "firebase-admin/firestore";
 
 admin.initializeApp();
 const db = admin.firestore();
 
-// Allow CORS from anywhere
+// Allow any origin; adjust in prod as you see fit
 const corsHandler = cors({ origin: true });
 
-/**
- * Extracts a Firebase UID from Authorization: Bearer <uid>
- */
-function getUidFromHeader(req: functions.https.Request): string | null {
-  const auth = req.get("Authorization") || "";
-  const match = auth.match(/^Bearer (.+)$/);
-  return match ? match[1] : null;
+/** Extracts “Bearer <uid>” */
+function getUidFromHeader(req: Request): string | null {
+  const auth = req.header("Authorization") || "";
+  const m = auth.match(/^Bearer (.+)$/);
+  return m ? m[1] : null;
 }
 
-export const parseUpload = functions.https.onRequest(
-  async (req, res) => {
-    // Handle CORS preflight & simple CORS
-    corsHandler(req, res, async () => {
-      // Only allow POST
-      if (req.method === "OPTIONS") {
-        return res.status(204).send("");
-      }
-      if (req.method !== "POST") {
-        return res.status(405).send("Method Not Allowed");
-      }
+export const parseUpload = functions.https.onRequest((req: Request, res: Response) => {
+  // First run CORS
+  corsHandler(req, res, async () => {
+    const uid = getUidFromHeader(req);
+    const xml = req.rawBody as Buffer;            // firebase-functions gives you rawBody for non-JSON types
+    let parserRes, yaml: string;
 
-      const uid = getUidFromHeader(req);
-      const xml = req.rawBody;
-      let parserRes: Response;
-      let yaml: string;
-
-      try {
-        // 1) Call the parser service
-        parserRes = await fetch(
-          "https://parser-service-156574509593.us-central1.run.app/parse",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/xml" },
-            body: xml,
-          }
-        );
-        yaml = await parserRes.text();
-
-        // 2) Log every parse attempt
-        await db.collection("parseLogs").add({
-          user: uid,
-          timestamp: FieldValue.serverTimestamp(),
-          status: parserRes.ok ? "success" : "error",
-          inputSize: xml.length,
-          errorMessage: parserRes.ok ? null : yaml,
-        });
-
-        // 3) If successful, store the YAML under /users/{uid}/files
-        if (parserRes.ok && uid) {
-          const headerName = req.get("X-File-Name") || "out.xml";
-          const filename = headerName.replace(/\.xml$/i, ".yaml");
-          await db
-            .collection("users")
-            .doc(uid)
-            .collection("files")
-            .add({
-              title: filename,
-              yaml,
-              createdAt: FieldValue.serverTimestamp(),
-              size: xml.length,
-              status: "ready",
-            });
+    try {
+      // 1) hit your parser
+      parserRes = await fetch(
+        "https://parser-service-156574509593.us-central1.run.app/parse",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/xml" },
+          body: xml,
         }
+      );
+      yaml = await parserRes.text();
 
-        // 4) Send the YAML (or error) back
-        return res.status(parserRes.ok ? 200 : 500).send(yaml);
-      } catch (err: any) {
-        console.error("parseUpload error:", err);
-        const msg = err instanceof Error ? err.message : String(err);
+      // 2) log it
+      await db.collection("parseLogs").add({
+        user:       uid,
+        timestamp:  FieldValue.serverTimestamp(),
+        status:     parserRes.ok ? "success" : "error",
+        inputSize:  xml.length,
+        errorMessage: parserRes.ok ? null : yaml,
+      });
 
-        // Log the failure
-        await db.collection("parseLogs").add({
-          user: uid,
-          timestamp: FieldValue.serverTimestamp(),
-          status: "error",
-          inputSize: xml.length,
-          errorMessage: msg,
-        });
-
-        return res.status(500).send(msg);
+      // 3) store under /users/{uid}/files if ok
+      if (parserRes.ok && uid) {
+        const rawName = req.header("X-File-Name") || "out.xml";
+        const title   = rawName.replace(/\.xml$/i, ".yaml");
+        await db
+          .collection("users")
+          .doc(uid)
+          .collection("files")
+          .add({
+            title,
+            yaml,
+            createdAt: FieldValue.serverTimestamp(),
+            size: yaml.length,
+            status: "ready",
+          });
       }
-    });
-  }
-);
+
+      // 4) return
+      res.status(parserRes.ok ? 200 : 500).send(yaml);
+
+    } catch (e: any) {
+      console.error("parseUpload error:", e);
+      const msg = e instanceof Error ? e.message : String(e);
+      // also log this failure
+      await db.collection("parseLogs").add({
+        user:        uid,
+        timestamp:   FieldValue.serverTimestamp(),
+        status:      "error",
+        inputSize:   xml?.length ?? 0,
+        errorMessage: msg,
+      });
+      res.status(500).send(msg);
+    }
+  });
+});
