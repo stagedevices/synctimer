@@ -164,6 +164,7 @@ export function UploadValidate() {
 
               <Button
                 type="primary"
+                htmlType="button"
                 size="large"
                 style={{
                   backgroundColor: '#70C73C',
@@ -173,7 +174,10 @@ export function UploadValidate() {
                   transition: 'transform 0.25s'
                 }}
                 loading={loading}
-                onClick={handleValidate}
+                onClick={() => {
+                    console.log("⏳ validate clicked:", { filename, length: xmlText.length, uid: auth.currentUser?.uid });
+                    handleValidate();
+                  }}
                 onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.03)')}
                 onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
                 disabled={!xmlText.trim()}
