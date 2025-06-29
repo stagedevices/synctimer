@@ -6,6 +6,7 @@ import { materialLight } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Card, Button, Row, Col, Input, Switch, message, Alert, Spin } from "antd";
 import { SunOutlined, MoonOutlined, CopyOutlined, DownloadOutlined } from "@ant-design/icons";
 import { saveAs } from "file-saver";
+import { auth } from "../lib/firebase";
 
 // Glassmorphic card style
 const glassStyle: React.CSSProperties = {
@@ -56,13 +57,19 @@ export function UploadValidate() {
   }, []);
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, accept: { "application/xml": [".xml"] } });
 
-  // Auto-parse title
+  // Auto- title
   useEffect(() => {
     const match = xmlText.match(/<work-title>([^<]+)<\/work-title>/i);
     if (match) setFilename(match[1] + '.yaml');
   }, [xmlText]);
 
   const handleValidate = async () => {
+    const user = auth.currentUser;
+   if (!user) {
+     message.error("You must be signed in to validate files.");
+     return;
+   }
+   const uid = user.uid;
     // Large file warning
     if (xmlText.length > 1_000_000) {
       message.warning("Large file detected—this may take a while", 5);
