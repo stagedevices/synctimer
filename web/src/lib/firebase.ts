@@ -1,32 +1,47 @@
 // web/src/lib/firebase.ts
 import { initializeApp } from "firebase/app";
 import {
+  getAuth,
+  onAuthStateChanged,
+  signInAnonymously,
+  connectAuthEmulator,
+  Auth,
+} from "firebase/auth";
+import {
   getFirestore,
   connectFirestoreEmulator,
   Firestore,
 } from "firebase/firestore";
-import {
-  getAuth,
-  connectAuthEmulator,
-  Auth,
-} from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: `${import.meta.env.VITE_FIREBASE_PROJECT_ID}.firebaseapp.com`,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  // …
 };
 
 const app = initializeApp(firebaseConfig);
-export const db: Firestore = getFirestore(app);
-export const auth: Auth = getAuth(app);
 
+// — Auth setup —
+export const auth: Auth = getAuth(app);
 if (import.meta.env.DEV) {
-  // point both Auth and Firestore at your local emulators:
-  connectFirestoreEmulator(db, "127.0.0.1", 8080);
+  // point Auth to emulator on 9099
   connectAuthEmulator(auth, "http://127.0.0.1:9099", {
-    // warning: in emulator mode, disable warnings about insecure origin:
     disableWarnings: true,
   });
+}
+
+// auto‐anonymous sign‐in
+onAuthStateChanged(auth, (user) => {
+  if (!user) {
+    signInAnonymously(auth).catch((e) => {
+      console.error("Anon sign-in failed:", e);
+    });
+  }
+});
+
+// — Firestore setup —
+export const db: Firestore = getFirestore(app);
+if (import.meta.env.DEV) {
+  // point Firestore to emulator on 8080
+  connectFirestoreEmulator(db, "127.0.0.1", 8080);
 }
