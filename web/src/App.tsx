@@ -1,7 +1,7 @@
 // web/src/App.tsx
 import React from "react";
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
-import { ParseWizard } from "./components/ParseWizard";
+import { UploadValidate } from "./components/UploadValidate";
 
 export function App() {
   return (
@@ -12,7 +12,7 @@ export function App() {
       </nav>
       <Routes>
         <Route path="/" element={<div>Welcome to SyncTimer</div>} />
-        <Route path="/parse" element={<ParseWizard />} />
+        <Route path="/parse" element={<UploadValidate />} />
       </Routes>
     </BrowserRouter>
   );
