@@ -2,7 +2,8 @@
 import { useEffect, useState } from "react";
 import { Card, List, Spin, Button } from "antd";
 import { DownloadOutlined } from "@ant-design/icons";
-import { db } from "../lib/firebase";
+import { db, auth } from "../lib/firebase";
+import { useAuthState } from "react-firebase-hooks/auth";
 import {
   collection,
   query,
@@ -21,13 +22,15 @@ interface FileRecord {
 }
 
 export function MyFiles() {
-  // TEMP: sandbox UID if nobody signed in
-  const uid = "TEST_UID";
+  const [user] = useAuthState(auth);
+  const uid = user?.uid;
 
   const [files, setFiles] = useState<FileRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!uid) return;
+    setLoading(true);
     const q = query(
       collection(db, "users", uid, "files"),
       orderBy("createdAt", "desc")
@@ -50,10 +53,11 @@ export function MyFiles() {
     return unsub;
   }, [uid]);
 
+  if (!uid) return <Spin tip="Loading user…" />;
   if (loading) return <Spin tip="Loading your files…" />;
 
   return (
-    <Card title={`My Files (Sandbox: ${uid})`}>
+    <Card title="My Files">
       {files.length === 0 ? (
         <div>No files yet — go validate one on the Validate page.</div>
       ) : (

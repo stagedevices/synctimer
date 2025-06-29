@@ -1,6 +1,7 @@
-import React, { useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import { parseUpload } from "../lib/api";
+import { parseUpload } from "./src/lib/api";
+import { auth } from "./src/lib/firebase";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { materialLight } from "react-syntax-highlighter/dist/esm/styles/prism";
 
@@ -27,10 +28,15 @@ export function ParseWizard() {
     setYaml(null);
     try {
       const blob = new Blob([xmlText], { type: "application/xml" });
-      const result = await parseUpload(blob);
+      const result = await parseUpload(
+        blob,
+        "out.yaml",
+        auth.currentUser?.uid ?? "anonymous"
+      );
       setYaml(result);
-    } catch (err: any) {
-      setError(err.message || "Unknown error");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg || "Unknown error");
     } finally {
       setLoading(false);
     }

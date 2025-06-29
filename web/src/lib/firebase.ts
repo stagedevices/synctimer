@@ -5,8 +5,8 @@ import {
   onAuthStateChanged,
   signInAnonymously,
   connectAuthEmulator,
-  Auth,
 } from "firebase/auth";
+import type { Auth } from "firebase/auth";
 import {
   getFirestore,
   connectFirestoreEmulator,
