@@ -1,5 +1,5 @@
 # ── Stage 1: Build the Rust HTTP+parser binary ─────────────────────────────────
-FROM rust:1.85-slim AS builder
+FROM rust:latest AS builder
 RUN apt-get update \
  && apt-get install -y --no-install-recommends libssl-dev pkg-config ca-certificates \
  && rm -rf /var/lib/apt/lists/*
