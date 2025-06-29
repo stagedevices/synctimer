@@ -13,4 +13,6 @@ jobs:
           override: true
 
       - name: Run parser tests
-        run: cargo test --manifest-path=parser/Cargo.toml --all-features
+        run: |
+	  cd web/parser
+	  cargo test --all-features
