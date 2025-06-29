@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, type CSSProperties } from "react";
 import { useDropzone } from "react-dropzone";
 import { parseUpload } from "../lib/api";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -6,10 +6,11 @@ import { materialLight } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Card, Button, Row, Col, Input, Switch, message, Alert, Spin } from "antd";
 import { SunOutlined, MoonOutlined, CopyOutlined, DownloadOutlined } from "@ant-design/icons";
 import { saveAs } from "file-saver";
-import { auth } from "../lib/firebase";
+import { auth, db } from "../lib/firebase";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 
 // Glassmorphic card style
-const glassStyle: React.CSSProperties = {
+const glassStyle: CSSProperties = {
   background: 'rgba(255,255,255,0.6)',
   backdropFilter: 'blur(8px)',
   borderRadius: '1.5rem',
@@ -19,7 +20,7 @@ const glassStyle: React.CSSProperties = {
 
 // Exponential backoff retry helper
 async function retry<T>(fn: () => Promise<T>, attempts = 3, delayMs = 500): Promise<T> {
-  let lastErr: any;
+  let lastErr: unknown;
   for (let i = 0; i < attempts; i++) {
     try {
       return await fn();
@@ -85,9 +86,10 @@ export function UploadValidate() {
       );      setYaml(result);
       const duration = ((performance.now() - start) / 1000).toFixed(2);
       message.success(`Parsed in ${duration}s`, 3);
-    } catch (err: any) {
-      setError(err.message || "Unknown error");
-      message.error(err.message || "Error during parsing", 3);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg || "Unknown error");
+      message.error(msg || "Error during parsing", 3);
     } finally {
       setLoading(false);
     }
@@ -105,6 +107,28 @@ export function UploadValidate() {
       const blob = new Blob([yaml], { type: 'text/yaml;charset=utf-8' });
       saveAs(blob, filename);
       message.success('Download started', 3);
+    }
+  };
+
+  const handleSendToFiles = async () => {
+    if (!yaml) return;
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      message.error('No user signed in', 3);
+      return;
+    }
+    try {
+      await addDoc(collection(db, 'users', uid, 'files'), {
+        title: filename,
+        yaml,
+        createdAt: serverTimestamp(),
+        size: yaml.length,
+        status: 'ready',
+      });
+      message.success('Saved to My Files', 3);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      message.error(msg || 'Failed to save', 3);
     }
   };
 
@@ -201,11 +225,23 @@ export function UploadValidate() {
                     <Button icon={<CopyOutlined />} onClick={handleCopy} style={{ marginRight: '0.5rem' }} />
                     <Button icon={<DownloadOutlined />} onClick={handleDownload} />
                   </div>
-                </>
-              ) : (
-                <div style={{ textAlign: 'center', color: '#888', padding: '2rem', fontSize: '1.2rem' }}>
-                  Validation results will appear here
-                </div>
+                  <Button
+                    type="primary"
+                    size="large"
+                    style={{
+                      backgroundColor: '#70C73C',
+                      borderRadius: '1rem',
+                      marginTop: '1rem',
+                    }}
+                    onClick={handleSendToFiles}
+                  >
+                    Send to My Files
+                  </Button>
+                  </>
+                ) : (
+                  <div style={{ textAlign: 'center', color: '#888', padding: '2rem', fontSize: '1.2rem' }}>
+                    Validation results will appear here
+                  </div>
               )}
             </Card>
           </Spin>
