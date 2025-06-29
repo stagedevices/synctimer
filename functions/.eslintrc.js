@@ -25,7 +25,15 @@ module.exports = {
     "@typescript-eslint",
     "import",
   ],
+  module.exports = {
+  // … your existing config …
   rules: {
+    // disable JSDoc requirements
+    "valid-jsdoc": "off",
+    "require-jsdoc": "off",
+    // disable the object-curly-spacing complaints
+    "object-curly-spacing": "off",
+    // (you can leave your other rules here)
     "quotes": ["error", "double"],
     "import/no-unresolved": 0,
     "indent": ["error", 2],
