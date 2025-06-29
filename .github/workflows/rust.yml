@@ -1,5 +1,9 @@
 name: Rust Tests
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
   test:
@@ -7,12 +11,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions-rs/toolchain@v1
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           override: true
 
       - name: Run parser tests
-        run: |
-	  cd web/parser
-	  cargo test --all-features
+        working-directory: web/parser
+        run: cargo test --all-features
