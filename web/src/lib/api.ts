@@ -3,20 +3,24 @@ export async function parseUpload(
   filename: string,
   uid: string
 ): Promise<string> {
-  const resp = await fetch(
-    `https://us-central1-${import.meta.env.VITE_FIREBASE_PROJECT_ID}.cloudfunctions.net/parseUpload`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/xml",
-        "Authorization": `Bearer ${uid}`,
-        "X-File-Name": filename,
-      },
-      body: xmlBlob,
-    }
-  );
+  const url = `https://us-central1-${import.meta.env.VITE_FIREBASE_PROJECT_ID}.cloudfunctions.net/parseUpload`;
+  console.log("📡 parseUpload calling", { url, filename, uid });
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/xml",
+      "Authorization": `Bearer ${uid}`,
+      "X-File-Name": filename,
+    },
+    body: xmlBlob,
+  });
+
+  console.log("📶 response status", resp.status);
+  const text = await resp.text();
+  console.log("📜 response text (first 200 chars):", text.slice(0, 200));
+  
   if (!resp.ok) {
-    throw new Error(await resp.text());
+    throw new Error(text);
   }
-  return resp.text();
+  return text;
 }
