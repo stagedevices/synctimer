@@ -1,6 +1,6 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-import { fetch } from "undici"
+import { fetch } from "undici";
 import cors from "cors";
 import { FieldValue } from "firebase-admin/firestore";
 
@@ -76,7 +76,6 @@ export const parseUpload = functions.https.onRequest(
 
         // 4) Send the YAML (or error) back
         return res.status(parserRes.ok ? 200 : 500).send(yaml);
-
       } catch (err: any) {
         console.error("parseUpload error:", err);
         const msg = err instanceof Error ? err.message : String(err);
