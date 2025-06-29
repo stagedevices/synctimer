@@ -3,7 +3,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import fetch from "node-fetch";
-import * as cors from "cors";
+import cors from "cors";
 import { FieldValue } from "firebase-admin/firestore";
 
 admin.initializeApp();
