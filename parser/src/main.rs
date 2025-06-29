@@ -1,4 +1,5 @@
 use std::{convert::Infallible, env};
+use bytes::Bytes;
 use warp::Filter;
 
 #[tokio::main]
@@ -21,7 +22,7 @@ async fn main() {
         .await;
 }
 
-async fn handle_parse(body: bytes::Bytes) -> Result<impl warp::Reply, Infallible> {
+async fn handle_parse(body: Bytes) -> Result<impl warp::Reply, Infallible> {
     let xml = std::str::from_utf8(&body).unwrap_or("");
     let result = match parser::parse_musicxml(xml) {
         Ok(events) => match parser::to_yaml(&events) {
