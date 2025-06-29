@@ -1,31 +1,33 @@
 import React from "react";
-import { useAuthState }     from "react-firebase-hooks/auth";
-import { useCollection }    from "react-firebase-hooks/firestore";
-import { auth, db }         from "../lib/firebase";
-import { collection, query, orderBy, where } from "firebase/firestore";
+import { useAuthState }  from "react-firebase-hooks/auth";
+import { useCollection } from "react-firebase-hooks/firestore";
+import { auth, db }      from "../lib/firebase";
+import {
+  collection,
+  query,
+  orderBy
+} from "firebase/firestore";
 import { Card, List, Spin, Button } from "antd";
-import { DownloadOutlined } from "@ant-design/icons";
-import { saveAs }           from "file-saver";
+import { DownloadOutlined }         from "@ant-design/icons";
+import { saveAs }                   from "file-saver";
 
 export function MyFiles() {
   const [user, loadingAuth] = useAuthState(auth);
 
-  // once we have a user, listen for their files
-  const filesQuery = user
-    ? query(
-        collection(db, "users", user.uid, "files"),
-        orderBy("createdAt", "desc")
-      )
-    : null;
+  // **Sandbox fallback**: if not signed-in, use this test UID.
+  // Replace "TEST_UID" with a real one if you already have a document in Firestore.
+  const uid = user?.uid || "TEST_UID";
+
+  // Now always construct a query — even if you're technically “unsigned”
+  const filesQuery = query(
+    collection(db, "users", uid, "files"),
+    orderBy("createdAt", "desc")
+  );
 
   const [snapshot, loadingFiles, error] = useCollection(filesQuery);
 
   if (loadingAuth || loadingFiles) {
     return <Spin tip="Loading your files…" style={{ margin: "2rem" }} />;
-  }
-
-  if (!user) {
-    return <Card style={{ margin: "2rem" }}>Please sign in to see your files.</Card>;
   }
 
   if (error) {
@@ -35,9 +37,9 @@ export function MyFiles() {
   const docs = snapshot?.docs ?? [];
 
   return (
-    <Card title="My Files" style={{ margin: "2rem" }}>
+    <Card title={`My Files (${uid === "TEST_UID" ? "Sandbox" : user?.email})`} style={{ margin: "2rem" }}>
       {docs.length === 0 ? (
-        <div>No files yet — upload one on the Validate page.</div>
+        <div>No files yet — go validate one on the Validate page.</div>
       ) : (
         <List
           itemLayout="horizontal"
@@ -49,10 +51,15 @@ export function MyFiles() {
                 actions={[
                   <Button
                     icon={<DownloadOutlined />}
-                    onClick={() => saveAs(new Blob([yaml], { type: "text/yaml" }), title)}
+                    onClick={() =>
+                      saveAs(
+                        new Blob([yaml], { type: "text/yaml" }),
+                        title
+                      )
+                    }
                   >
                     Download
-                  </Button>,
+                  </Button>
                 ]}
               >
                 <List.Item.Meta
