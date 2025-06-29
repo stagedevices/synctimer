@@ -63,13 +63,15 @@ export function UploadValidate() {
     if (match) setFilename(match[1] + '.yaml');
   }, [xmlText]);
 
-  const handleValidate = async () => {
-    const user = auth.currentUser;
-   if (!user) {
-     message.error("You must be signed in to validate files.");
-     return;
-   }
-   const uid = user.uid;
+  const handleValidate = useCallback(async () => {
+  console.log("🚀 handleValidate start", { xmlLength: xmlText.length, filename, uid: auth.currentUser?.uid });
+  alert("handleValidate called");                // <-- quick popup to confirm click
+  const user = auth.currentUser;
+  if (!user) {
+    message.error("You must be signed in to validate files.");
+    return;
+  }
+  const uid = user.uid;
     // Large file warning
     if (xmlText.length > 1_000_000) {
       message.warning("Large file detected—this may take a while", 5);
@@ -164,8 +166,8 @@ export function UploadValidate() {
 
               <Button
                 type="primary"
-                htmlType="button"
                 size="large"
+                htmlType="button"
                 style={{
                   backgroundColor: '#70C73C',
                   borderRadius: '1rem',
@@ -174,13 +176,10 @@ export function UploadValidate() {
                   transition: 'transform 0.25s'
                 }}
                 loading={loading}
-                onClick={() => {
-                    console.log("⏳ validate clicked:", { filename, length: xmlText.length, uid: auth.currentUser?.uid });
-                    handleValidate();
-                  }}
+                onClick={handleValidate}
                 onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.03)')}
                 onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-                disabled={!xmlText.trim()}
+                /* disabled={!xmlText.trim()}  <-- remove this temporarily */
               >
                 Validate XML
               </Button>
