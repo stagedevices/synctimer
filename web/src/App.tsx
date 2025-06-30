@@ -6,8 +6,7 @@ import SharedFiles from './components/SharedFiles';
 import { SentFiles } from './components/SentFiles';
 import { Contacts } from './components/Contacts';
 import { Devices } from './components/Devices';
-import { Account } from './components/Account';
-import { AuthPage } from './components/AuthPage';
+import { Account } from './pages/Account';
 import Settings from './components/Settings';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from './lib/firebase';
@@ -41,8 +40,8 @@ export function App() {
         </nav>
       )}
       <Routes>
-        <Route path="/account" element={<RequireAuth><Account /></RequireAuth>} />
-        <Route path="/" element={<RequireNoAuth><AuthPage /></RequireNoAuth>} />
+        <Route path="/account" element={<RequireNoAuth><Account /></RequireNoAuth>} />
+        <Route path="/" element={<Navigate to="/account" replace />} />
         <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
         <Route path="/parse" element={<RequireAuth><UploadValidate /></RequireAuth>} />
         <Route path="/files" element={<RequireAuth><MyFiles /></RequireAuth>} />

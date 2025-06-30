@@ -24,12 +24,19 @@ export async function createAccount(
   handle: string,
   name: string
 ) {
+  const h = handle.toLowerCase();
+  const existing = await getDocs(
+    query(collection(db, 'users'), where('handle', '==', h))
+  );
+  if (!existing.empty) {
+    throw new Error('Handle already taken');
+  }
   const cred = await createUserWithEmailAndPassword(auth, email, password);
   if (name) await updateProfile(cred.user, { displayName: name });
   await setDoc(doc(db, 'users', cred.user.uid), {
     email,
-    handle,
-    name,
+    handle: h,
+    name: name || null,
     createdAt: serverTimestamp(),
   });
   return cred.user;
