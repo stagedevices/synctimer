@@ -22,7 +22,7 @@ export function Account() {
 
   useEffect(() => {
     if (!uid) return;
-    const ref = doc(db, 'users', uid, 'profile');
+    const ref = doc(db, 'users', uid);
     const unsub = onSnapshot(
       ref,
       (snap) => {
@@ -51,7 +51,7 @@ export function Account() {
     if (!uid) return;
     setSaving(true);
     try {
-      await updateDoc(doc(db, 'users', uid, 'profile'), { ensembles });
+      await updateDoc(doc(db, 'users', uid), { ensembles });
       message.success('Saved');
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -80,12 +80,13 @@ export function Account() {
           <Avatar src={user.photoURL} size={64} />
           <div style={{ marginTop: 8, fontSize: '1.2rem' }}>{user.displayName}</div>
           <div>{user.email}</div>
-          {profile.lastSignedInAt && (
-            <div style={{ marginTop: 8 }}>
-              Last sign-in:{' '}
-              {profile.lastSignedInAt.toDate().toLocaleString()}
-            </div>
-          )}
+          {profile.lastSignedInAt &&
+            typeof (profile.lastSignedInAt as Timestamp).toDate === 'function' && (
+              <div style={{ marginTop: 8 }}>
+                Last sign-in:{' '}
+                {(profile.lastSignedInAt as Timestamp).toDate().toLocaleString()}
+              </div>
+            )}
         </Col>
         <Col span={24}>
           {user.providerData.map((p) => (

@@ -2,7 +2,7 @@ import { Card, Button, Row, Col, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, signInWithGoogle, signInWithApple } from '../lib/firebase';
-import { type ReactElement } from 'react';
+import { type ReactElement, useEffect } from 'react';
 
 function GoogleIcon(): ReactElement {
   return (
@@ -50,15 +50,16 @@ export function Home() {
   const [user] = useAuthState(auth);
   const navigate = useNavigate();
 
-  if (user) {
-    navigate('/account');
-    return null;
-  }
+  useEffect(() => {
+    if (user) {
+      navigate('/', { replace: true });
+    }
+  }, [user, navigate]);
 
   const handle = async (fn: () => Promise<unknown>) => {
     try {
       await fn();
-      navigate('/account');
+      navigate('/', { replace: true });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       message.error(msg);
