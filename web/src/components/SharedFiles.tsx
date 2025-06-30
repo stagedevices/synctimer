@@ -10,7 +10,7 @@ interface SharedFile {
   sharedAt: Timestamp;
 }
 
-export default function SharedFiles() {
+const SharedFiles: React.FC = () => {
   const [files, setFiles] = useState<SharedFile[]>([]);
 
   useEffect(() => {
@@ -46,4 +46,6 @@ export default function SharedFiles() {
       />
     </Card>
   );
-}
+};
+
+export default SharedFiles;
