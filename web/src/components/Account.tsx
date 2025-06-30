@@ -111,6 +111,7 @@ export function Account() {
   const uid = user?.uid;
   const profileRef = useMemo(
     () => (uid ? doc(db, 'users', uid, 'profile', 'info') : null),
+
     [uid],
   );
   const photoDoc = useMemo(
@@ -173,6 +174,7 @@ export function Account() {
   useEffect(() => {
     if (!uid) return;
     const ref = doc(db, 'users', uid, 'profile', 'info');
+
     (async () => {
       setLoadingUser(true);
       try {
@@ -222,6 +224,7 @@ export function Account() {
     (async () => {
       try {
         const snap = await getDoc(doc(db, 'users', cu.uid, 'profile', 'info'));
+
         const data = snap.data() as { photoURL?: string } | undefined;
         if (data?.photoURL) setPreviewURL(data.photoURL);
       } catch {
