@@ -109,7 +109,10 @@ export function Account() {
   const [user] = useAuthState(auth);
   const navigate = useNavigate();
   const uid = user?.uid;
-  const profileRef = useMemo(() => (uid ? doc(db, 'users', uid) : null), [uid]);
+  const profileRef = useMemo(
+    () => (uid ? doc(db, 'users', uid, 'profile') : null),
+    [uid],
+  );
   const photoDoc = useMemo(
     () => (uid ? doc(db, 'users', uid, 'profile', 'photo') : null),
 
@@ -169,7 +172,7 @@ export function Account() {
   // Fetch profile once on mount to avoid resetting values on each keystroke
   useEffect(() => {
     if (!uid) return;
-    const ref = doc(db, 'users', uid);
+    const ref = doc(db, 'users', uid, 'profile');
     (async () => {
       setLoadingUser(true);
       try {
@@ -211,6 +214,21 @@ export function Account() {
       }
     })();
   }, [uid]);
+
+  // keep avatar in state across auth changes
+  useEffect(() => {
+    const cu = auth.currentUser;
+    if (!cu) return;
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, 'users', cu.uid, 'profile'));
+        const data = snap.data() as { photoURL?: string } | undefined;
+        if (data?.photoURL) setPreviewURL(data.photoURL);
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, [auth.currentUser]);
 
 
 
@@ -310,7 +328,7 @@ export function Account() {
       ]);
       setProfile((p) => (p ? { ...p, photoURL: url } : p));
       setPreviewURL(url);
-      message.success('Photo updated');
+      message.success('Avatar saved');
     } catch (e) {
       const msg = (e as FirebaseError).message ?? String(e);
       message.error(msg);
@@ -662,27 +680,63 @@ export function Account() {
           </div>
           </Form>
 
-          <Collapse activeKey={pwOpen ? ['pw'] : []} onChange={() => setPwOpen(!pwOpen)} style={{ marginTop: 24 }}>
-            <Collapse.Panel header="Change Password" key="pw">
-              <Form layout="vertical">
-                <Form.Item label="Current Password">
-                  <Input.Password value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
-                </Form.Item>
-                <Form.Item label="New Password" help="At least 12 chars & one special" validateStatus={newPassword && newPassword.length < 12 ? 'error' : undefined}>
-                  <Input.Password value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
-                </Form.Item>
-                <Progress percent={strength(newPassword)} showInfo={false} />
-                <Form.Item label="Confirm Password" validateStatus={confirmPassword && confirmPassword !== newPassword ? 'error' : undefined}>
-                  <Input.Password value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
-                </Form.Item>
-                <Form.Item>
-                  <Button type="primary" onClick={changePassword} loading={pwSaving} disabled={!canChangePw}>
-                    Update Password
-                  </Button>
-                </Form.Item>
-              </Form>
-            </Collapse.Panel>
-          </Collapse>
+          <Collapse
+            activeKey={pwOpen ? ['pw'] : []}
+            onChange={() => setPwOpen(!pwOpen)}
+            style={{ marginTop: 24 }}
+            items={[
+              {
+                key: 'pw',
+                label: 'Change Password',
+                children: (
+                  <Form layout="vertical">
+                    <Form.Item label="Current Password">
+                      <Input.Password
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      label="New Password"
+                      help="At least 12 chars & one special"
+                      validateStatus={
+                        newPassword && newPassword.length < 12 ? 'error' : undefined
+                      }
+                    >
+                      <Input.Password
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                      />
+                    </Form.Item>
+                    <Progress percent={strength(newPassword)} showInfo={false} />
+                    <Form.Item
+                      label="Confirm Password"
+                      validateStatus={
+                        confirmPassword && confirmPassword !== newPassword
+                          ? 'error'
+                          : undefined
+                      }
+                    >
+                      <Input.Password
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                      />
+                    </Form.Item>
+                    <Form.Item>
+                      <Button
+                        type="primary"
+                        onClick={changePassword}
+                        loading={pwSaving}
+                        disabled={!canChangePw}
+                      >
+                        Update Password
+                      </Button>
+                    </Form.Item>
+                  </Form>
+                ),
+              },
+            ]}
+          />
 
           <Card type="inner" title="Danger Zone" style={{ marginTop: 24 }}>
             <Row gutter={16}>

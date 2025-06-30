@@ -149,7 +149,7 @@ export function AccountLanding() {
                 onChange={setDark}
               />
             </Row>
-            <Tabs destroyInactiveTabPane={false}
+            <Tabs destroyOnHidden={false}
 
               items={[
                 {
