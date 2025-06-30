@@ -54,6 +54,7 @@ export async function signUp(
   handle: string,
   first: string,
   last: string,
+
   password: string,
 ): Promise<User> {
   const h = handle.toLowerCase();
@@ -71,6 +72,7 @@ export async function signUp(
     handle: h,
     first,
     last,
+
     createdAt: serverTimestamp(),
   });
   return cred.user;

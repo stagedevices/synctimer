@@ -45,6 +45,7 @@ export function AccountLanding() {
     handle: string;
     first: string;
     last: string;
+
     password: string;
     confirm: string;
   }
@@ -72,6 +73,7 @@ export function AccountLanding() {
   };
 
   const handleSignUp = async (vals: SignUpVals) => {
+
     setSignupLoading(true);
     try {
       await signUp(
@@ -81,6 +83,7 @@ export function AccountLanding() {
         vals.last.trim(),
         vals.password
       );
+
       message.success('Account created');
       navigate('/parse');
     } catch (e: unknown) {
@@ -121,6 +124,7 @@ export function AccountLanding() {
 
   const passwordRule = {
     required: true,
+
     validator(_: unknown, value: string) {
       if (!value) return Promise.reject('Password is required');
       const re = /^(?=.*[!@#$%^&*()_+\-=[\]{}|;:'",.<>/?]).{12,}$/;
@@ -136,6 +140,7 @@ export function AccountLanding() {
         <Col xs={0} md={12} />
         <Col xs={24} md={12} className="landing-side">
           <Card className="glass-card landing-card" style={{ maxWidth: 560, width: '100%' }}>
+
             <Row justify="space-between" align="middle" style={{ marginBottom: '1rem' }}>
               <h1 style={{ margin: 0 }}>SyncTimer</h1>
               <Switch
@@ -146,6 +151,7 @@ export function AccountLanding() {
               />
             </Row>
             <Tabs destroyInactiveTabPane={false}
+
               items={[
                 {
                   key: 'signin',
@@ -154,6 +160,7 @@ export function AccountLanding() {
                     <Form form={signinForm} layout="vertical" onFinish={handleSignIn} initialValues={{ remember: true }}>
                       <Form.Item name="identifier" label="Username or Email" required rules={[{ required: true, message: 'Please enter username or email' }]}> <Input /> </Form.Item>
                       <Form.Item name="password" label="Password" required rules={[{ required: true, message: 'Please enter password' }]}> <Input.Password /> </Form.Item>
+
                       <Form.Item name="remember" valuePropName="checked"> <Checkbox>Remember me</Checkbox> </Form.Item>
                       <Form.Item>
                         <Button type="link" style={{ padding: 0 }} onClick={() => setResetOpen(true)}>
@@ -178,6 +185,7 @@ export function AccountLanding() {
                       <Form.Item name="first" label="First Name" required rules={[{ required: true }]}> <Input /> </Form.Item>
                       <Form.Item name="last" label="Last Name" required rules={[{ required: true }]}> <Input /> </Form.Item>
                       <Form.Item name="password" label="Password" required rules={[passwordRule]}> <Input.Password /> </Form.Item>
+
                       <Form.Item
                         name="confirm"
                         label="Confirm Password"
@@ -185,6 +193,7 @@ export function AccountLanding() {
                         hasFeedback
                         required
                         rules={[{ required: true, message: 'Please confirm password' }, ({ getFieldValue }) => ({
+
                           validator(_, value) {
                             if (!value || getFieldValue('password') === value) {
                               return Promise.resolve();
@@ -218,6 +227,7 @@ export function AccountLanding() {
       >
         <Form form={resetForm} layout="vertical">
           <Form.Item name="identifier" label="Email or Handle" required rules={[{ required: true }]}> <Input /> </Form.Item>
+
         </Form>
       </Modal>
     </ConfigProvider>
