@@ -125,6 +125,13 @@ export function UploadValidate() {
         size: yaml.length,
         status: 'ready',
       });
+      await addDoc(collection(db, 'users', uid, 'sent'), {
+        title: filename,
+        yaml,
+        createdAt: serverTimestamp(),
+        size: yaml.length,
+        status: 'ready',
+      });
       message.success('Saved to My Files', 3);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
