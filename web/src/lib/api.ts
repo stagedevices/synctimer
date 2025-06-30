@@ -56,3 +56,33 @@ export async function getLinkToken(uid: string): Promise<string> {
   const data = await resp.json();
   return data.token as string;
 }
+
+export async function sendPeerRequest(email: string, fromUid: string): Promise<void> {
+  const url = `https://us-central1-${import.meta.env.VITE_FIREBASE_PROJECT_ID}.cloudfunctions.net/sendPeerRequest`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${fromUid}`,
+    },
+    body: JSON.stringify({ email, fromUid }),
+  });
+  if (!resp.ok) {
+    throw new Error(await resp.text());
+  }
+}
+
+export async function removePeer(peerUid: string, fromUid: string): Promise<void> {
+  const url = `https://us-central1-${import.meta.env.VITE_FIREBASE_PROJECT_ID}.cloudfunctions.net/removePeer`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${fromUid}`,
+    },
+    body: JSON.stringify({ peerUid, fromUid }),
+  });
+  if (!resp.ok) {
+    throw new Error(await resp.text());
+  }
+}
