@@ -18,12 +18,12 @@ export function Devices() {
   const uid = user?.uid;
 
   const [devices, setDevices] = useState<Device[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loadingDevices, setLoadingDevices] = useState(true);
   const [token, setToken] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [nameInput, setNameInput] = useState('');
 
-  // Fetch a one-time link token on mount
+  // Fetch a one-time link token whenever the user changes
   useEffect(() => {
     if (!uid) return;
     getLinkToken(uid)
@@ -31,25 +31,25 @@ export function Devices() {
       .catch((e) => message.error(e instanceof Error ? e.message : String(e)));
   }, [uid]);
 
-  // Subscribe to devices only after we have a link token
+  // Subscribe to the user's devices
   useEffect(() => {
-    if (!uid || !token) return;
-    setLoading(true);
+    if (!uid) return;
+    setLoadingDevices(true);
     const unsub = onSnapshot(
       collection(db, 'users', uid, 'devices'),
       (snap) => {
         const docs = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Device, 'id'>) }));
         setDevices(docs);
-        setLoading(false);
+        setLoadingDevices(false);
       },
       (err) => {
         console.error('Devices:onSnapshot error', err);
         message.error('Failed to load devices');
-        setLoading(false);
+        setLoadingDevices(false);
       },
     );
     return unsub;
-  }, [uid, token]);
+  }, [uid]);
 
   const saveName = async (id: string) => {
     if (!uid) return;
@@ -104,7 +104,7 @@ export function Devices() {
           <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
             <QRCodeSVG value={`https://synctimer.app/link?uid=${uid}&token=${token}`} />
           </div>
-          {loading ? (
+          {loadingDevices ? (
             <Spin tip="Loading devices…" />
           ) : (
             <List
