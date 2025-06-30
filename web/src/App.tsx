@@ -11,9 +11,9 @@ import Settings from './components/Settings';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from './lib/firebase';
 import { Spin } from 'antd';
-import { type ReactElement } from 'react';
+import type { JSX } from 'react';
 
-function RequireAuth({ children }: { children: ReactElement }) {
+function RequireAuth({ children }: { children: JSX.Element }) {
   return auth.currentUser ? children : <Navigate to="/account" replace />;
 }
 
