@@ -76,7 +76,7 @@ export function Account() {
     const unsub = onSnapshot(
       ref,
       (snap) => {
-        const data = (snap.exists() ? (snap.data() as Profile) : {}) as Profile;
+        const data = snap.exists() ? ((snap.data().profile as Profile) || {}) : {};
         setProfile(data);
       },
       (err) => message.error(err.message)
@@ -116,7 +116,8 @@ export function Account() {
         const url = await getDownloadURL(ref);
         await Promise.all([
           updateProfile(auth.currentUser!, { photoURL: url }),
-          setDoc(doc(db, 'users', uid, 'profile'), { photoURL: url }, { merge: true }),
+          setDoc(doc(db, 'users', uid), { 'profile.photoURL': url }, { merge: true }),
+
         ]);
         message.success('Photo updated');
         setPhotoModal(false);
@@ -152,13 +153,14 @@ export function Account() {
         await updateProfile(auth.currentUser!, { displayName: vals.displayName });
       }
       await setDoc(
-        doc(db, 'users', uid, 'profile'),
+        doc(db, 'users', uid),
         {
-          displayName: vals.displayName,
-          bio: vals.bio || '',
-          pronouns: vals.pronouns || '',
-          username: vals.username,
-          email: vals.email,
+          'profile.displayName': vals.displayName,
+          'profile.bio': vals.bio || '',
+          'profile.pronouns': vals.pronouns || '',
+          'profile.username': vals.username,
+          'profile.email': vals.email,
+
         },
         { merge: true }
       );
@@ -203,12 +205,9 @@ export function Account() {
   const downloadData = async () => {
     if (!uid) return;
     try {
-      const profileSnap = await getDoc(doc(db, 'users', uid, 'profile'));
       const userSnap = await getDoc(doc(db, 'users', uid));
-      const data = {
-        user: userSnap.data(),
-        profile: profileSnap.data(),
-      };
+      const data = userSnap.data();
+
       const blob = new Blob([JSON.stringify(data, null, 2)], {
         type: 'application/json',
       });
@@ -225,7 +224,7 @@ export function Account() {
       try {
         await deleteObject(storageRef(storage, `avatars/${uid}.png`));
       } catch {}
-      await deleteDoc(doc(db, 'users', uid, 'profile'));
+
       await deleteDoc(doc(db, 'users', uid));
       await deleteUser(auth.currentUser!);
     } catch (e: any) {
