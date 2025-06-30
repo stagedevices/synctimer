@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import { Home } from './components/Home';
 import { UploadValidate } from './components/UploadValidate';
 import { MyFiles } from './components/MyFiles';
-import { SharedFiles } from './components/SharedFiles';
+import SharedFiles from './components/SharedFiles';
 import { SentFiles } from './components/SentFiles';
 import { Contacts } from './components/Contacts';
 import { LinkPhone } from './components/LinkPhone';
