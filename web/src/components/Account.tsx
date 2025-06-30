@@ -166,6 +166,7 @@ export function Account() {
           ...(raw.profile || {}),
           ...(raw as Partial<Profile>),
         };
+
         setProfile(data);
         const uname = (data.username || (data as { handle?: string }).handle || '').toString();
         const merged = {
@@ -182,6 +183,7 @@ export function Account() {
       } catch (err) {
         const msg = (err as FirebaseError).message ?? String(err);
         message.error(msg);
+
       } finally {
         setLoadingUser(false);
       }
