@@ -125,12 +125,19 @@ export function AccountLanding() {
 
   return (
     <ConfigProvider theme={{ token: { colorPrimary: '#70C73C', fontFamily: 'system-ui' } }}>
-      <Row style={{ minHeight: '100vh' }}>
+      <Row style={{ width: '100vw', minHeight: '100vh' }}>
         <Col xs={0} md={12} />
         <Col xs={24} md={12} className="landing-side">
           <Card
             className="glass-card landing-card"
-            style={{ width: '100%', maxWidth: 600, margin: 'auto' }}
+            style={{
+              width: '100%',
+              height: '100%',
+              padding: '2rem',
+              borderRadius: '1.5rem',
+              backdropFilter: 'blur(8px)',
+              background: 'rgba(255,255,255,0.6)',
+            }}
           >
 
             <Row justify="space-between" align="middle" style={{ marginBottom: '1rem' }}>
