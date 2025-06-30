@@ -6,7 +6,8 @@ import SharedFiles from './components/SharedFiles';
 import { SentFiles } from './components/SentFiles';
 import { Contacts } from './components/Contacts';
 import { Devices } from './components/Devices';
-import { Account } from './components/Account';
+
+import { Account as AccountProfile } from './components/Account';
 import Settings from './components/Settings';
 import { AccountLanding } from './pages/AccountLanding';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -34,7 +35,12 @@ export function App() {
       )}
       <Routes>
         <Route path="/" element={<AccountLanding />} />
-        <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
+        <Route
+          path="/account"
+          element={
+            auth.currentUser ? <AccountProfile /> : <AccountLanding />
+          }
+        />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/parse" element={<ProtectedRoute><UploadValidate /></ProtectedRoute>} />
         <Route path="/files" element={<ProtectedRoute><MyFiles /></ProtectedRoute>} />
