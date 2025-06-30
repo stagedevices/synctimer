@@ -162,6 +162,7 @@ export function Account() {
           profile?: Partial<Profile>;
         };
         const data: Profile = { ...(raw.profile || {}), ...(raw as Partial<Profile>) } as Profile;
+
         setProfile(data);
         const merged = {
           displayName: data.displayName || auth.currentUser?.displayName || '',
@@ -177,6 +178,7 @@ export function Account() {
       } catch (err) {
         const msg = (err as FirebaseError).message ?? String(err);
         message.error(msg);
+
       } finally {
         setLoadingUser(false);
       }
