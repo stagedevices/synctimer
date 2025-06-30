@@ -6,7 +6,7 @@ import { MyFiles } from './components/MyFiles';
 import SharedFiles from './components/SharedFiles';
 import { SentFiles } from './components/SentFiles';
 import { Contacts } from './components/Contacts';
-import { LinkPhone } from './components/LinkPhone';
+import { Devices } from './components/Devices';
 import { Settings } from './components/Settings';
 
 
@@ -30,7 +30,7 @@ export function App() {
         <Route path="/shared" element={<SharedFiles />} />
         <Route path="/sent" element={<SentFiles />} />
         <Route path="/contacts" element={<Contacts />} />
-        <Route path="/devices" element={<LinkPhone />} />
+        <Route path="/devices" element={<Devices />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>
     </BrowserRouter>
