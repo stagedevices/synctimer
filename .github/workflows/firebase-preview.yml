@@ -20,12 +20,26 @@ jobs:
       - run: |
           node <<'EOF'
           const {execSync} = require('child_process');
-          const list = execSync('npx firebase-tools hosting:channel:list --project synctimer-dev-464400 --json', {stdio: ['ignore', 'pipe', 'inherit']}).toString();
-          const data = JSON.parse(list);
-          for (const c of data.result || []) {
+          const raw = execSync(
+            'npx firebase-tools hosting:channel:list --project synctimer-dev-464400 --json',
+            { stdio: ['ignore', 'pipe', 'inherit'] }
+          ).toString();
+          let data;
+          try {
+            data = JSON.parse(raw);
+          } catch (e) {
+            console.error('Failed to parse channel list:', e);
+            process.exit(0);
+          }
+          const channels = Array.isArray(data.result)
+            ? data.result
+            : Array.isArray(data.result?.channels)
+              ? data.result.channels
+              : [];
+          for (const c of channels) {
             const name = c.name.split('/').pop();
             if (name !== 'github-actions-preview' && name !== 'live') {
-              execSync(`npx firebase-tools hosting:channel:delete ${name} --project synctimer-dev-464400 --force`, {stdio: 'inherit'});
+              execSync(`npx firebase-tools hosting:channel:delete ${name} --project synctimer-dev-464400 --force`, { stdio: 'inherit' });
             }
           }
           EOF
