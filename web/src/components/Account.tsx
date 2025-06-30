@@ -29,12 +29,7 @@ import {
 import {
   doc,
   setDoc,
-  updateDoc,
   getDoc,
-  getDocs,
-  query,
-  where,
-  collection,
   deleteDoc,
   deleteField,
   type Timestamp,
@@ -109,14 +104,9 @@ export function Account() {
   const [user] = useAuthState(auth);
   const navigate = useNavigate();
   const uid = user?.uid;
+  // reference to the single profile document
   const profileRef = useMemo(
-    () => (uid ? doc(db, 'users', uid, 'profile', 'info') : null),
-
-    [uid],
-  );
-  const photoDoc = useMemo(
-    () => (uid ? doc(db, 'users', uid, 'profile', 'photo') : null),
-
+    () => (uid ? doc(db, 'users', uid, 'profile') : null),
     [uid],
   );
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -173,7 +163,8 @@ export function Account() {
   // Fetch profile once on mount to avoid resetting values on each keystroke
   useEffect(() => {
     if (!uid) return;
-    const ref = doc(db, 'users', uid, 'profile', 'info');
+    // load the profile document from Firestore on mount
+    const ref = doc(db, 'users', uid, 'profile');
 
     (async () => {
       setLoadingUser(true);
@@ -189,11 +180,8 @@ export function Account() {
           ...(raw as Partial<Profile>),
         };
 
-        let url = data.photoURL || auth.currentUser?.photoURL || null;
-        if (photoDoc) {
-          const photoSnap = await getDoc(photoDoc);
-          url = (photoSnap.data() as { photoURL?: string })?.photoURL || url;
-        }
+        // prefer profile photoURL, fallback to auth's photoURL
+        const url = data.photoURL || auth.currentUser?.photoURL || null;
         setProfile({ ...data, photoURL: url || undefined });
         const uname = (data.username || (data as { handle?: string }).handle || '').toString();
         const merged = {
@@ -219,11 +207,10 @@ export function Account() {
 
   // keep avatar in state across auth changes
   useEffect(() => {
-    const cu = auth.currentUser;
-    if (!cu) return;
+    if (!user?.uid) return;
     (async () => {
       try {
-        const snap = await getDoc(doc(db, 'users', cu.uid, 'profile', 'info'));
+        const snap = await getDoc(doc(db, 'users', user.uid, 'profile'));
 
         const data = snap.data() as { photoURL?: string } | undefined;
         if (data?.photoURL) setPreviewURL(data.photoURL);
@@ -231,7 +218,7 @@ export function Account() {
         /* ignore */
       }
     })();
-  }, [auth.currentUser]);
+  }, [user?.uid]);
 
 
 
@@ -324,8 +311,8 @@ export function Account() {
         );
       });
       await Promise.all([
+        // update auth profile and Firestore document with the new avatar URL
         updateProfile(auth.currentUser!, { photoURL: url }),
-        photoDoc ? setDoc(photoDoc, { photoURL: url }) : Promise.resolve(),
         setDoc(profileRef, { photoURL: url }, { merge: true }),
       ]);
       setProfile((p) => (p ? { ...p, photoURL: url } : p));
@@ -345,7 +332,7 @@ export function Account() {
   };
 
   const removePhoto = async () => {
-    if (!uid || !photoDoc) return;
+    if (!uid || !profileRef) return;
     try {
       await deleteObject(storageRef(storage, `avatars/${uid}.jpg`));
     } catch {
@@ -353,10 +340,7 @@ export function Account() {
     }
     try {
       await updateProfile(auth.currentUser!, { photoURL: '' });
-      await updateDoc(photoDoc, { photoURL: deleteField() });
-      if (profileRef) {
-        await setDoc(profileRef, { photoURL: deleteField() }, { merge: true });
-      }
+      await setDoc(profileRef, { photoURL: deleteField() }, { merge: true });
 
       setPreviewURL(null);
       setProfile((p) => (p ? { ...p, photoURL: undefined } : p));
@@ -379,25 +363,12 @@ export function Account() {
     } else if (field === 'pronouns') {
       if (value.length > 20) return 'Max 20 characters';
     } else if (field === 'username') {
-      if (!/^[A-Za-z0-9_]{3,32}$/.test(value))
-        return '3-32 letters, numbers or _';
+      if (!/^[a-z0-9_]{1,32}$/.test(value))
+        return 'Use lowercase letters, numbers or _ (max 32)';
 
-      const lower = value.toLowerCase();
-      const userCol = collection(db, 'users');
-
-      // potential fields where username might live
-      const checks = [
-        query(userCol, where('usernameLower', '==', lower)),
-        query(userCol, where('profile.usernameLower', '==', lower)),
-        query(userCol, where('username', '==', value)),
-        query(userCol, where('profile.username', '==', value)),
-      ];
-
-      for (const q of checks) {
-        const snap = await getDocs(q);
-        const taken = snap.docs.find((d) => d.id !== uid);
-        if (taken) return 'This username is already taken.';
-      }
+      const snap = await getDoc(doc(db, 'usernames', value));
+      if (snap.exists() && snap.data().uid !== uid)
+        return 'This username is already taken.';
 
     } else if (field === 'email') {
       const re = /[^@]+@[^.]+\..+/;
@@ -424,8 +395,19 @@ export function Account() {
     setSavingField(field);
     try {
       const data: Record<string, unknown> = { [field]: value };
-      if (field === 'username') data.usernameLower = value.toLowerCase();
-      await updateDoc(profileRef, data as DocumentData);
+      if (field === 'username') {
+        data.usernameLower = value.toLowerCase();
+        const nameRef = doc(db, 'usernames', value);
+        const takenSnap = await getDoc(nameRef);
+        if (takenSnap.exists() && takenSnap.data().uid !== uid) {
+          throw new Error('Username already taken');
+        }
+        if (original.username && original.username !== value) {
+          await deleteDoc(doc(db, 'usernames', original.username));
+        }
+        await setDoc(nameRef, { uid });
+      }
+      await setDoc(profileRef, data as DocumentData, { merge: true });
       if (field === 'displayName')
         await updateProfile(auth.currentUser!, { displayName: value });
       if (field === 'email') await updateEmail(auth.currentUser!, value);
@@ -603,6 +585,7 @@ export function Account() {
                   value={values.displayName}
                   onChange={(e) => setValues({ ...values, displayName: e.target.value })}
                   onBlur={() => saveField('displayName')}
+                  disabled={savingField === 'displayName'}
                 />
                 <Button size="small" type="primary" onClick={() => saveField('displayName')} disabled={values.displayName === original.displayName || !!errors.displayName} loading={savingField === 'displayName'}>
                   Save
@@ -620,6 +603,7 @@ export function Account() {
                   value={values.bio}
                   onChange={(e) => setValues({ ...values, bio: e.target.value })}
                   onBlur={() => saveField('bio')}
+                  disabled={savingField === 'bio'}
                 />
                 <Button size="small" type="primary" onClick={() => saveField('bio')} disabled={values.bio === original.bio || !!errors.bio} loading={savingField === 'bio'}>
                   Save
@@ -636,6 +620,7 @@ export function Account() {
                   value={values.pronouns}
                   onChange={(e) => setValues({ ...values, pronouns: e.target.value })}
                   onBlur={() => saveField('pronouns')}
+                  disabled={savingField === 'pronouns'}
                 />
 
                 <Button size="small" type="primary" onClick={() => saveField('pronouns')} disabled={values.pronouns === original.pronouns || !!errors.pronouns} loading={savingField === 'pronouns'}>
@@ -657,6 +642,7 @@ export function Account() {
                     setValues({ ...values, username: e.target.value });
                   }}
                   onBlur={() => saveField('username')}
+                  disabled={savingField === 'username'}
                 />
                 <Button size="small" type="primary" onClick={() => saveField('username')} disabled={values.username === original.username || !!errors.username} loading={savingField === 'username'}>
                   Save
@@ -673,6 +659,7 @@ export function Account() {
                   value={values.email}
                   onChange={(e) => setValues({ ...values, email: e.target.value })}
                   onBlur={() => saveField('email')}
+                  disabled={savingField === 'email'}
                 />
                 <Button size="small" type="primary" onClick={() => saveField('email')} disabled={values.email === original.email || !!errors.email} loading={savingField === 'email'}>
                   Save
