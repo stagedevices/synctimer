@@ -8,15 +8,11 @@ import {
   signInWithPopup,
   unlink,
   type Auth,
-  type UserCredential,
 } from "firebase/auth";
 import {
   getFirestore,
   connectFirestoreEmulator,
   Firestore,
-  doc,
-  setDoc,
-  serverTimestamp,
 } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -46,30 +42,12 @@ if (import.meta.env.DEV) {
 export const googleProvider = new GoogleAuthProvider();
 export const appleProvider = new OAuthProvider('apple.com');
 
-async function writeProfile(cred: UserCredential) {
-  const u = cred.user;
-  await setDoc(
-    doc(db, 'users', u.uid),
-    {
-      displayName: u.displayName,
-      email: u.email,
-      photoURL: u.photoURL,
-      lastSignedInAt: serverTimestamp(),
-    },
-    { merge: true }
-  );
+export function signInWithGoogle() {
+  return signInWithPopup(auth, googleProvider);
 }
 
-export async function signInWithGoogle() {
-  const cred = await signInWithPopup(auth, googleProvider);
-  await writeProfile(cred);
-  return cred;
-}
-
-export async function signInWithApple() {
-  const cred = await signInWithPopup(auth, appleProvider);
-  await writeProfile(cred);
-  return cred;
+export function signInWithApple() {
+  return signInWithPopup(auth, appleProvider);
 }
 
 export async function unlinkProvider(providerId: string) {
