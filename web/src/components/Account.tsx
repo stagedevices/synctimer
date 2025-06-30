@@ -156,7 +156,8 @@ export function Account() {
       try {
         const snap = await getDoc(ref);
 
-        const data = snap.exists() ? ((snap.data() as Profile) || {}) : {};
+        const raw = snap.exists() ? (snap.data() as any) : {};
+        const data: Profile = { ...(raw.profile || {}), ...(raw as Profile) };
         setProfile(data);
         const merged = {
           displayName: data.displayName || auth.currentUser?.displayName || '',
