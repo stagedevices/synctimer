@@ -1,0 +1,217 @@
+import { useEffect, useState } from 'react';
+import {
+  Row,
+  Col,
+  Card,
+  Tabs,
+  Form,
+  Input,
+  Button,
+  Checkbox,
+  Switch,
+  Modal,
+  message,
+  ConfigProvider,
+} from 'antd';
+import { SunOutlined, MoonOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../lib/firebase';
+import { signIn, signUp, sendReset } from '../lib/auth';
+
+export function AccountLanding() {
+  const navigate = useNavigate();
+
+  const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark');
+  useEffect(() => {
+    document.body.dataset.theme = dark ? 'dark' : 'light';
+    localStorage.setItem('theme', dark ? 'dark' : 'light');
+  }, [dark]);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => {
+      if (u) navigate('/parse');
+    });
+    return unsub;
+  }, [navigate]);
+
+  interface SignInVals {
+    identifier: string;
+    password: string;
+    remember: boolean;
+  }
+  interface SignUpVals {
+    email: string;
+    handle: string;
+    name?: string;
+    password: string;
+    confirm: string;
+  }
+
+  const [signinForm] = Form.useForm<SignInVals>();
+  const [createForm] = Form.useForm<SignUpVals>();
+  const [resetForm] = Form.useForm();
+  const [signinLoading, setSigninLoading] = useState(false);
+  const [signupLoading, setSignupLoading] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+
+  const handleSignIn = async (vals: SignInVals) => {
+    setSigninLoading(true);
+    try {
+      await signIn(vals.identifier, vals.password, vals.remember);
+      message.success('Signed in');
+      navigate('/parse');
+    } catch (e: unknown) {
+      const err = e as { code?: string; message?: string };
+      message.error(err.code || err.message || 'Sign in failed');
+    } finally {
+      setSigninLoading(false);
+    }
+  };
+
+  const handleSignUp = async (vals: SignUpVals) => {
+    if (vals.password !== vals.confirm) {
+      message.error('Passwords do not match');
+      return;
+    }
+    setSignupLoading(true);
+    try {
+      await signUp(vals.email, vals.handle, vals.name || '', vals.password);
+      message.success('Account created');
+      navigate('/parse');
+    } catch (e: unknown) {
+      const err = e as { code?: string; message?: string };
+      message.error(err.code || err.message || 'Account creation failed');
+    } finally {
+      setSignupLoading(false);
+    }
+  };
+
+  const handleReset = async () => {
+    try {
+      const id = resetForm.getFieldValue('identifier');
+      if (!id) {
+        message.error('Enter your email or handle');
+        return;
+      }
+      setResetLoading(true);
+      await sendReset(id);
+      message.success('Password reset sent');
+      setResetOpen(false);
+      resetForm.resetFields();
+    } catch (e: unknown) {
+      const err = e as { code?: string; message?: string };
+      message.error(err.code || err.message || 'Failed to send reset');
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const validateHandle = async (_: unknown, value: string) => {
+    if (!value) return Promise.reject('Username is required');
+    if (!/^[a-z0-9_]{1,32}$/.test(value)) {
+      return Promise.reject('Use a-z, 0-9 or _ (max 32)');
+    }
+    return Promise.resolve();
+  };
+
+  const passwordRule = {
+    validator(_: unknown, value: string) {
+      if (!value) return Promise.reject('Password is required');
+      const re = /^(?=.*[!@#$%^&*()_+\-=[\]{}|;:'",.<>/?]).{12,}$/;
+      return re.test(value)
+        ? Promise.resolve()
+        : Promise.reject('Min 12 chars with symbol');
+    },
+  };
+
+  return (
+    <ConfigProvider theme={{ token: { colorPrimary: '#70C73C', fontFamily: 'system-ui' } }}>
+      <Row justify="center" align="middle" style={{ minHeight: '100vh' }}>
+        <Col xs={23} sm={16} md={12} lg={8}>
+          <Card className="glass-card">
+            <Row justify="space-between" align="middle" style={{ marginBottom: '1rem' }}>
+              <h1 style={{ margin: 0 }}>SyncTimer</h1>
+              <Switch
+                checkedChildren={<MoonOutlined />}
+                unCheckedChildren={<SunOutlined />}
+                checked={dark}
+                onChange={setDark}
+              />
+            </Row>
+            <Tabs
+              items={[
+                {
+                  key: 'signin',
+                  label: 'Sign In',
+                  children: (
+                    <Form form={signinForm} layout="vertical" onFinish={handleSignIn} initialValues={{ remember: true }}>
+                      <Form.Item name="identifier" label="Username or Email" rules={[{ required: true }]}> <Input /> </Form.Item>
+                      <Form.Item name="password" label="Password" rules={[{ required: true }]}> <Input.Password /> </Form.Item>
+                      <Form.Item name="remember" valuePropName="checked"> <Checkbox>Remember me</Checkbox> </Form.Item>
+                      <Form.Item>
+                        <Button type="link" style={{ padding: 0 }} onClick={() => setResetOpen(true)}>
+                          Forgot password?
+                        </Button>
+                      </Form.Item>
+                      <Form.Item>
+                        <Button type="primary" htmlType="submit" block loading={signinLoading} disabled={signinLoading}>
+                          Sign In
+                        </Button>
+                      </Form.Item>
+                    </Form>
+                  ),
+                },
+                {
+                  key: 'create',
+                  label: 'Create Account',
+                  children: (
+                    <Form form={createForm} layout="vertical" onFinish={handleSignUp}>
+                      <Form.Item name="email" label="Email" rules={[{ required: true, type: 'email' }]}> <Input /> </Form.Item>
+                      <Form.Item name="handle" label="Username" rules={[{ validator: validateHandle }]} validateTrigger="onBlur"> <Input /> </Form.Item>
+                      <Form.Item name="name" label="Full Name"> <Input /> </Form.Item>
+                      <Form.Item name="password" label="Password" rules={[passwordRule]}> <Input.Password /> </Form.Item>
+                      <Form.Item
+                        name="confirm"
+                        label="Confirm Password"
+                        dependencies={["password"]}
+                        rules={[{ required: true }, ({ getFieldValue }) => ({
+                          validator(_, value) {
+                            if (!value || getFieldValue('password') === value) {
+                              return Promise.resolve();
+                            }
+                            return Promise.reject(new Error('Passwords do not match'));
+                          },
+                        })]}
+                      >
+                        <Input.Password />
+                      </Form.Item>
+                      <Form.Item>
+                        <Button type="primary" htmlType="submit" block loading={signupLoading} disabled={signupLoading}>
+                          Create Account
+                        </Button>
+                      </Form.Item>
+                    </Form>
+                  ),
+                },
+              ]}
+            />
+          </Card>
+        </Col>
+      </Row>
+      <Modal
+        open={resetOpen}
+        title="Reset Password"
+        onCancel={() => setResetOpen(false)}
+        onOk={handleReset}
+        okText="Send Reset"
+        confirmLoading={resetLoading}
+      >
+        <Form form={resetForm} layout="vertical">
+          <Form.Item name="identifier" label="Email or Handle" rules={[{ required: true }]}> <Input /> </Form.Item>
+        </Form>
+      </Modal>
+    </ConfigProvider>
+  );
+}
