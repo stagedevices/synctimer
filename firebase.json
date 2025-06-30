@@ -24,23 +24,6 @@
     "ignore": ["firebase.json","**/.*","**/node_modules/**"],
     "rewrites": [{ "source": "**", "destination": "/index.html" }]
   },
-  "storage": {
-    "rules": "storage.rules",
-    "cors": [
-      {
-        "origin": ["http://localhost:5173"],
-        "method": ["GET", "POST", "PUT", "DELETE", "HEAD"],
-        "responseHeader": ["Authorization", "Content-Type"],
-        "maxAgeSeconds": 3600
-      },
-      {
-        "origin": ["https://us-central1-synctimer-dev-464400.cloudfunctions.net"],
-        "method": ["GET", "POST", "PUT", "DELETE", "HEAD"],
-        "responseHeader": ["Authorization", "Content-Type"],
-        "maxAgeSeconds": 3600
-      }
-    ]
-  },
   "emulators": {
     "auth":    { "port": 9099 },
     "functions": { "port": 5001 },
