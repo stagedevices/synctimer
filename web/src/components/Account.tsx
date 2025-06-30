@@ -28,14 +28,12 @@ import {
 import {
   doc,
   onSnapshot,
-  setDoc,
   updateDoc,
   getDoc,
   getDocs,
   query,
   where,
   collection,
-
   deleteDoc,
   type Timestamp,
 } from 'firebase/firestore';
@@ -126,12 +124,12 @@ export function Account() {
   const [errors, setErrors] = useState<Partial<Record<keyof typeof values, string>>>({});
   const [savingField, setSavingField] = useState<keyof typeof values | null>(null);
 
-  const refs: Record<keyof typeof values, React.RefObject<HTMLDivElement>> = {
-    displayName: useRef(null),
-    bio: useRef(null),
-    pronouns: useRef(null),
-    username: useRef(null),
-    email: useRef(null),
+  const refs: Record<keyof typeof values, React.RefObject<HTMLDivElement | null>> = {
+    displayName: useRef<HTMLDivElement | null>(null),
+    bio: useRef<HTMLDivElement | null>(null),
+    pronouns: useRef<HTMLDivElement | null>(null),
+    username: useRef<HTMLDivElement | null>(null),
+    email: useRef<HTMLDivElement | null>(null),
   };
 
   useEffect(() => {
@@ -193,7 +191,11 @@ export function Account() {
     if (!photoFile || !croppedArea) return;
     (async () => {
       const blob = await getCropped(photoFile, croppedArea);
-      const compressed = await imageCompression(blob, { maxSizeMB: 0.2, maxWidthOrHeight: 400 });
+      const croppedFile = new File([blob], photoFile.name, { type: 'image/jpeg' });
+      const compressed = await imageCompression(croppedFile, {
+        maxSizeMB: 0.2,
+        maxWidthOrHeight: 400,
+      });
       setPreviewURL(URL.createObjectURL(compressed));
     })();
   }, [photoFile, croppedArea]);
@@ -202,7 +204,11 @@ export function Account() {
     if (!uid || !photoFile || !croppedArea) return;
     try {
       const blob = await getCropped(photoFile, croppedArea);
-      const compressed = await imageCompression(blob, { maxSizeMB: 0.2, maxWidthOrHeight: 400 });
+      const croppedFile = new File([blob], photoFile.name, { type: 'image/jpeg' });
+      const compressed = await imageCompression(croppedFile, {
+        maxSizeMB: 0.2,
+        maxWidthOrHeight: 400,
+      });
       const storage = getStorage();
       const ref = storageRef(storage, `users/${uid}/profile.jpg`);
       await uploadBytes(ref, compressed);
@@ -267,7 +273,7 @@ export function Account() {
     try {
       const data: Record<string, unknown> = { [field]: value };
       if (field === 'username') data.usernameLower = value.toLowerCase();
-      await updateDoc(profileRef, data);
+      await updateDoc(profileRef, data as any);
       if (field === 'displayName')
         await updateProfile(auth.currentUser!, { displayName: value });
       if (field === 'email') await updateEmail(auth.currentUser!, value);
