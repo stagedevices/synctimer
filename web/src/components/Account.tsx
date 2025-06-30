@@ -160,20 +160,25 @@ export function Account() {
 
         const raw = (snap.data() || {}) as Partial<Profile> & {
           profile?: Partial<Profile>;
+          handle?: string;
         };
-        const data: Profile = { ...(raw.profile || {}), ...(raw as Partial<Profile>) } as Profile;
+        const data: Profile & { handle?: string } = {
+          ...(raw.profile || {}),
+          ...(raw as Partial<Profile>),
+        };
 
         setProfile(data);
+        const uname = (data.username || (data as { handle?: string }).handle || '').toString();
         const merged = {
           displayName: data.displayName || auth.currentUser?.displayName || '',
           bio: data.bio || '',
           pronouns: data.pronouns || '',
-          username: data.username || '',
+          username: uname,
           email: data.email || auth.currentUser?.email || '',
         };
         setValues(merged);
         setOriginal(merged);
-        setUsername(merged.username);
+        setUsername(uname);
         setPreviewURL(data.photoURL || auth.currentUser?.photoURL || null);
       } catch (err) {
         const msg = (err as FirebaseError).message ?? String(err);
