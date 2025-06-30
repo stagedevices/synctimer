@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Card, Avatar, Button, Tag, Input, Spin, Row, Col, message } from 'antd';
+import { Card, Avatar, Button, Spin, Row, Col, message } from 'antd';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db, unlinkProvider } from '../lib/firebase';
-import { doc, onSnapshot, updateDoc, type Timestamp } from 'firebase/firestore';
+import { doc, onSnapshot, type Timestamp } from 'firebase/firestore';
 
 interface Profile {
   displayName?: string;
   email?: string;
   photoURL?: string;
-  ensembles?: string[];
   lastSignedInAt?: Timestamp;
 }
 
@@ -16,50 +15,20 @@ export function Account() {
   const [user] = useAuthState(auth);
   const uid = user?.uid;
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [ensembles, setEnsembles] = useState<string[]>([]);
-  const [newTag, setNewTag] = useState('');
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!uid) return;
-    const ref = doc(db, 'users', uid);
+    const ref = doc(db, 'users', uid, 'profile');
     const unsub = onSnapshot(
       ref,
       (snap) => {
         const data = (snap.exists() ? (snap.data() as Profile) : {}) as Profile;
         setProfile(data);
-        setEnsembles(data.ensembles || []);
       },
       (err) => message.error(err.message)
     );
     return unsub;
   }, [uid]);
-
-  const addTag = () => {
-    const t = newTag.trim();
-    if (t && !ensembles.includes(t)) {
-      setEnsembles([...ensembles, t]);
-    }
-    setNewTag('');
-  };
-
-  const removeTag = (t: string) => {
-    setEnsembles(ensembles.filter((e) => e !== t));
-  };
-
-  const saveTags = async () => {
-    if (!uid) return;
-    setSaving(true);
-    try {
-      await updateDoc(doc(db, 'users', uid), { ensembles });
-      message.success('Saved');
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      message.error(msg);
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const handleUnlink = async (pid: string) => {
     try {
@@ -99,26 +68,6 @@ export function Account() {
               Disconnect {p.providerId}
             </Button>
           ))}
-        </Col>
-        <Col span={24}>
-          {ensembles.map((t) => (
-            <Tag key={t} closable onClose={() => removeTag(t)} style={{ marginBottom: 4 }}>
-              {t}
-            </Tag>
-          ))}
-          <Input
-            value={newTag}
-            onChange={(e) => setNewTag(e.target.value)}
-            onPressEnter={addTag}
-            placeholder="Add ensemble"
-            style={{ width: 200, marginRight: 8 }}
-          />
-          <Button onClick={addTag}>Add</Button>
-          <div style={{ marginTop: 8 }}>
-            <Button type="primary" onClick={saveTags} loading={saving}>
-              Save Ensembles
-            </Button>
-          </div>
         </Col>
       </Row>
     </Card>
