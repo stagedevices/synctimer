@@ -8,8 +8,10 @@ import { randomUUID } from "crypto";
 admin.initializeApp();
 const db = admin.firestore();
 
-// default CORS allow-all
-const corsHandler = cors({ origin: true });
+// enable CORS for emulator and production
+const corsHandler = cors({
+  origin: ["http://localhost:5173", "http://localhost:9099", true],
+});
 
 function getUidFromHeader(req: functions.https.Request): string | null {
   const auth = req.header("Authorization") || "";
