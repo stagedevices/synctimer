@@ -1,37 +1,38 @@
-import { Button, message } from 'antd';
+import { Button, Row, Col, message } from 'antd';
+import { signInWithGoogle, signInWithApple } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, signInWithGoogle, signInWithApple } from '../lib/firebase';
-import { useEffect } from 'react';
 
 export function Account() {
-  const [user] = useAuthState(auth);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (user) {
-      navigate('/parse', { replace: true });
-    }
-  }, [user, navigate]);
-
-  const handle = async (fn: () => Promise<unknown>) => {
+  const nav = useNavigate();
+  const handleSignIn = async (providerFn: () => Promise<unknown>) => {
     try {
-      await fn();
-      navigate('/parse', { replace: true });
+      await providerFn();
+      nav('/parse');
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      message.error(msg);
+      const err = e instanceof Error ? e.message : 'Authentication failed';
+      message.error(err);
     }
   };
 
   return (
-    <div style={{ maxWidth: 320, margin: '2rem auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      <Button type="primary" block onClick={() => handle(signInWithGoogle)}>
-        Sign in with Google
-      </Button>
-      <Button block onClick={() => handle(signInWithApple)}>
-        Sign in with Apple
-      </Button>
-    </div>
+    <Row justify="center" align="middle" style={{ height: '100vh' }}>
+      <Col>
+        <Button
+          block
+          size="large"
+          style={{ marginBottom: '1rem' }}
+          onClick={() => handleSignIn(signInWithGoogle)}
+        >
+          Sign in with Google
+        </Button>
+        <Button
+          block
+          size="large"
+          onClick={() => handleSignIn(signInWithApple)}
+        >
+          Sign in with Apple
+        </Button>
+      </Col>
+    </Row>
   );
 }

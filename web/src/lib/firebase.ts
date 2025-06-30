@@ -1,5 +1,5 @@
 // web/src/lib/firebase.ts
-import { initializeApp } from "firebase/app";
+import { initializeApp } from 'firebase/app';
 import {
   getAuth,
   connectAuthEmulator,
@@ -8,20 +8,20 @@ import {
   signInWithPopup,
   unlink,
   type Auth,
-} from "firebase/auth";
+} from 'firebase/auth';
 import {
   getFirestore,
   connectFirestoreEmulator,
-  Firestore,
-} from "firebase/firestore";
+  type Firestore,
+} from 'firebase/firestore';
 
-const firebaseConfig = {
+const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
 };
 
-const app = initializeApp(firebaseConfig);
+const app = initializeApp(config);
 
 // — Auth setup —
 export const auth: Auth = getAuth(app);
