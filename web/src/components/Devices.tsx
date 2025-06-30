@@ -21,7 +21,7 @@ import {
 import { auth, db } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import bwipjs from 'bwip-js';
+
 import { CSSTransition, TransitionGroup } from 'react-transition-group';
 
 const SECRET = import.meta.env.VITE_DEVICE_SECRET || 'dev-secret';
@@ -82,14 +82,19 @@ export function Devices() {
         const sigBuf = await crypto.subtle.sign('HMAC', key, enc.encode(uid + ts));
         const sig = btoa(String.fromCharCode(...new Uint8Array(sigBuf)));
         const payload = JSON.stringify({ uid, ts, sig });
-        bwipjs.toCanvas(canvasRef.current!, {
-          bcid: 'pdf417',
-          text: payload,
-          scale: 3,
-          includetext: false,
-          padding: 10,
-          backgroundcolor: 'rgba(0,0,0,0)',
-        });
+        const url =
+          'https://bwipjs-api.metafloor.com/?bcid=pdf417&scale=3&padding=10&text=' +
+          encodeURIComponent(payload);
+        const img = new Image();
+        img.onload = () => {
+          const c = canvasRef.current!;
+          c.width = img.width;
+          c.height = img.height;
+          c.getContext('2d')?.drawImage(img, 0, 0);
+        };
+        img.onerror = () => message.error('Failed to render barcode');
+        img.src = url;
+
       } catch (e) {
         console.error(e);
         message.error('Failed to render barcode');
