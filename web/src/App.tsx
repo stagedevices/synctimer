@@ -11,6 +11,11 @@ import Settings from './components/Settings';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from './lib/firebase';
 import { Spin } from 'antd';
+import { type ReactElement } from 'react';
+
+function RequireAuth({ children }: { children: ReactElement }) {
+  return auth.currentUser ? children : <Navigate to="/account" replace />;
+}
 
 export function App() {
   const [user, loading] = useAuthState(auth);
@@ -32,21 +37,15 @@ export function App() {
       )}
       <Routes>
         <Route path="/account" element={<Account />} />
-        {!auth.currentUser ? (
-          <Route path="*" element={<Navigate to="/account" replace />} />
-        ) : (
-          <>
-            <Route path="/" element={<Navigate to="/parse" replace />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/parse" element={<UploadValidate />} />
-            <Route path="/files" element={<MyFiles />} />
-            <Route path="/shared" element={<SharedFiles />} />
-            <Route path="/sent" element={<SentFiles />} />
-            <Route path="/contacts" element={<Contacts />} />
-            <Route path="/devices" element={<Devices />} />
-            <Route path="*" element={<Navigate to="/parse" replace />} />
-          </>
-        )}
+        <Route path="/" element={<RequireAuth><Navigate to="/parse" replace /></RequireAuth>} />
+        <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
+        <Route path="/parse" element={<RequireAuth><UploadValidate /></RequireAuth>} />
+        <Route path="/files" element={<RequireAuth><MyFiles /></RequireAuth>} />
+        <Route path="/shared" element={<RequireAuth><SharedFiles /></RequireAuth>} />
+        <Route path="/sent" element={<RequireAuth><SentFiles /></RequireAuth>} />
+        <Route path="/contacts" element={<RequireAuth><Contacts /></RequireAuth>} />
+        <Route path="/devices" element={<RequireAuth><Devices /></RequireAuth>} />
+        <Route path="*" element={<RequireAuth><Navigate to="/parse" replace /></RequireAuth>} />
       </Routes>
     </BrowserRouter>
   );

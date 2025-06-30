@@ -1,4 +1,4 @@
-import { Button, Card, Col, Row, message } from 'antd';
+import { Button, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, signInWithGoogle, signInWithApple } from '../lib/firebase';
@@ -25,19 +25,13 @@ export function Account() {
   };
 
   return (
-    <Card className="glass-card" style={{ margin: '2rem', borderRadius: '1.5rem' }}>
-      <Row gutter={[16, 16]} justify="center">
-        <Col span={24}>
-          <Button type="primary" size="large" block onClick={() => handle(signInWithGoogle)}>
-            Sign in with Google
-          </Button>
-        </Col>
-        <Col span={24}>
-          <Button size="large" block onClick={() => handle(signInWithApple)}>
-            Sign in with Apple
-          </Button>
-        </Col>
-      </Row>
-    </Card>
+    <div style={{ maxWidth: 320, margin: '2rem auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <Button type="primary" block onClick={() => handle(signInWithGoogle)}>
+        Sign in with Google
+      </Button>
+      <Button block onClick={() => handle(signInWithApple)}>
+        Sign in with Apple
+      </Button>
+    </div>
   );
 }
