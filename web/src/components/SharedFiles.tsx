@@ -1,9 +1,51 @@
-import { Card } from 'antd';
+import React, { useEffect, useState } from "react";
+import { List, Card } from "antd";
+import { db, auth } from "../lib/firebase";
+import { collection, query, orderBy, onSnapshot, Timestamp } from "firebase/firestore";
 
-export function SharedFiles() {
+interface SharedFile {
+  id: string;
+  title: string;
+  sharedBy: string;
+  sharedAt: Timestamp;
+}
+
+const SharedFiles: React.FC = () => {
+  const [files, setFiles] = useState<SharedFile[]>([]);
+
+  useEffect(() => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+
+    const q = query(
+      collection(db, "users", uid, "shared"),
+      orderBy("sharedAt", "desc")
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const docs = snap.docs.map((d) => ({
+        id: d.id,
+        ...(d.data() as Omit<SharedFile, "id">),
+      }));
+      setFiles(docs);
+    });
+    return unsub;
+  }, []);
+
   return (
-    <Card title="Shared Files" style={{ margin: '2rem', borderRadius: '1.5rem' }}>
-      {/* TODO: list of shared YAML files */}
+    <Card title="Shared with Me">
+      <List
+        dataSource={files}
+        locale={{ emptyText: "Nothing shared with you yet" }}
+        renderItem={(file) => (
+          <List.Item key={file.id}>
+            <Card title={file.title} style={{ width: "100%" }}>
+              Shared by {file.sharedBy} · {file.sharedAt.toDate().toLocaleString()}
+            </Card>
+          </List.Item>
+        )}
+      />
     </Card>
   );
-}
+};
+
+export default SharedFiles;
