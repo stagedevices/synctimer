@@ -1,0 +1,174 @@
+import { useState, useEffect } from 'react';
+import {
+  Form,
+  Input,
+  Button,
+  Checkbox,
+  Tabs,
+  message,
+  Row,
+  Col,
+  Switch,
+  Card,
+  ConfigProvider,
+} from 'antd';
+import { SunOutlined, MoonOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
+import {
+  createAccount,
+  signInWithIdentifier,
+  sendPasswordResetEmail,
+} from '../lib/auth';
+import { db, auth } from '../lib/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+
+export function AuthPage() {
+  const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark');
+
+  useEffect(() => {
+    document.body.dataset.theme = dark ? 'dark' : 'light';
+    localStorage.setItem('theme', dark ? 'dark' : 'light');
+  }, [dark]);
+
+  const navigate = useNavigate();
+
+  const validateHandle = async (_: unknown, value: string) => {
+    if (!value) return Promise.reject('Username is required');
+    if (!/^[a-z0-9_]{1,32}$/.test(value)) {
+      return Promise.reject('Use a-z, 0-9 or _ (max 32)');
+    }
+    const snap = await getDocs(
+      query(collection(db, 'users'), where('handle', '==', value.toLowerCase()))
+    );
+    if (!snap.empty) return Promise.reject('Username already taken');
+    return Promise.resolve();
+  };
+
+  const passwordRule = {
+    validator(_: unknown, value: string) {
+      if (!value) return Promise.reject('Password is required');
+      const re = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{}|;:'",.<>/?])[ -~]{12,}$/;
+      return re.test(value)
+        ? Promise.resolve()
+        : Promise.reject('Min 12 chars with letters, numbers & symbol');
+    },
+  };
+
+  const onSignIn = async (vals: any) => {
+    try {
+      await signInWithIdentifier(vals.identifier, vals.password);
+      navigate('/parse');
+    } catch (e: any) {
+      message.error(e.message || 'Sign in failed');
+    }
+  };
+
+  const onCreate = async (vals: any) => {
+    if (vals.password !== vals.confirm) {
+      message.error('Passwords do not match');
+      return;
+    }
+    try {
+      await createAccount(
+        vals.email,
+        vals.password,
+        vals.handle.toLowerCase(),
+        vals.name || ''
+      );
+      navigate('/parse');
+    } catch (e: any) {
+      message.error(e.message || 'Account creation failed');
+    }
+  };
+
+  const onForgot = async (identifier: string) => {
+    if (!identifier) {
+      message.error('Enter your email to reset password');
+      return;
+    }
+    let email = identifier;
+    if (!identifier.includes('@')) {
+      const snap = await getDocs(
+        query(collection(db, 'users'), where('handle', '==', identifier.toLowerCase()))
+      );
+      if (snap.empty) {
+        message.error('User not found');
+        return;
+      }
+      email = (snap.docs[0].data() as { email: string }).email;
+    }
+    try {
+      await sendPasswordResetEmail(auth, email);
+      message.success('Password reset sent');
+    } catch (e: any) {
+      message.error(e.message || 'Failed to send reset email');
+    }
+  };
+
+  return (
+    <ConfigProvider theme={{ token: { colorPrimary: '#70C73C', fontFamily: 'system-ui' } }}>
+      <Row justify="center" align="middle" style={{ minHeight: '100vh' }}>
+        <Col xs={23} sm={16} md={12} lg={8}>
+          <Card className="glass-card">
+            <Row justify="space-between" align="middle" style={{ marginBottom: '1rem' }}>
+              <h1 style={{ margin: 0 }}>SyncTimer</h1>
+              <Switch
+                checkedChildren={<MoonOutlined />}
+                unCheckedChildren={<SunOutlined />}
+                checked={dark}
+                onChange={setDark}
+              />
+            </Row>
+            <Tabs
+              items={[
+                {
+                  key: 'signin',
+                  label: 'Sign In',
+                  children: (
+                    <Form layout="vertical" onFinish={onSignIn}>
+                      <Form.Item name="identifier" label="Username or Email" rules={[{ required: true }]}> <Input /> </Form.Item>
+                      <Form.Item name="password" label="Password" rules={[{ required: true }]}> <Input.Password /> </Form.Item>
+                      <Form.Item name="remember" valuePropName="checked"> <Checkbox>Remember me</Checkbox> </Form.Item>
+                      <Form.Item>
+                        <Button
+                          type="link"
+                          onClick={() => onForgot((document.querySelector('input[name="identifier"]') as HTMLInputElement)?.value || '')}
+                          style={{ padding: 0 }}
+                        >
+                          Forgot password?
+                        </Button>
+                      </Form.Item>
+                      <Form.Item>
+                        <Button type="primary" htmlType="submit" block>
+                          Sign In
+                        </Button>
+                      </Form.Item>
+                    </Form>
+                  ),
+                },
+                {
+                  key: 'create',
+                  label: 'Create Account',
+                  children: (
+                    <Form layout="vertical" onFinish={onCreate}>
+                      <Form.Item name="email" label="Email" rules={[{ required: true, type: 'email' }]}> <Input /> </Form.Item>
+                      <Form.Item name="handle" label="Username" rules={[{ validator: validateHandle }]} validateTrigger="onBlur"> <Input /> </Form.Item>
+                      <Form.Item name="name" label="Full name"> <Input /> </Form.Item>
+                      <Form.Item name="password" label="Password" rules={[passwordRule]}> <Input.Password /> </Form.Item>
+                      <Form.Item name="confirm" label="Confirm password" dependencies={['password']} rules={[{ required: true, validator: (_, value, { getFieldValue }) => value === getFieldValue('password') ? Promise.resolve() : Promise.reject('Passwords do not match') }]}> <Input.Password /> </Form.Item>
+                      <Form.Item>
+                        <Button type="primary" htmlType="submit" block>
+                          Create Account
+                        </Button>
+                      </Form.Item>
+                    </Form>
+                  ),
+                },
+              ]}
+            />
+          </Card>
+        </Col>
+      </Row>
+    </ConfigProvider>
+  );
+}
