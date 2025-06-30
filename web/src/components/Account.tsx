@@ -212,6 +212,21 @@ export function Account() {
     })();
   }, [uid]);
 
+  // keep avatar in state across auth changes
+  useEffect(() => {
+    const cu = auth.currentUser;
+    if (!cu) return;
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, 'users', cu.uid));
+        const data = snap.data() as { photoURL?: string } | undefined;
+        if (data?.photoURL) setPreviewURL(data.photoURL);
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, [auth.currentUser]);
+
 
 
   const beforeUpload = (file: File) => {
@@ -305,12 +320,11 @@ export function Account() {
       await Promise.all([
         updateProfile(auth.currentUser!, { photoURL: url }),
         photoDoc ? setDoc(photoDoc, { photoURL: url }) : Promise.resolve(),
-        updateDoc(profileRef, { photoURL: url }),
-
+        setDoc(profileRef, { photoURL: url }, { merge: true }),
       ]);
       setProfile((p) => (p ? { ...p, photoURL: url } : p));
       setPreviewURL(url);
-      message.success('Photo updated');
+      message.success('Avatar saved');
     } catch (e) {
       const msg = (e as FirebaseError).message ?? String(e);
       message.error(msg);
@@ -335,7 +349,7 @@ export function Account() {
       await updateProfile(auth.currentUser!, { photoURL: '' });
       await updateDoc(photoDoc, { photoURL: deleteField() });
       if (profileRef) {
-        await updateDoc(profileRef, { photoURL: deleteField() });
+        await setDoc(profileRef, { photoURL: deleteField() }, { merge: true });
       }
 
       setPreviewURL(null);
@@ -405,7 +419,7 @@ export function Account() {
     try {
       const data: Record<string, unknown> = { [field]: value };
       if (field === 'username') data.usernameLower = value.toLowerCase();
-      await updateDoc(profileRef, data as DocumentData);
+      await setDoc(profileRef, data as DocumentData, { merge: true });
       if (field === 'displayName')
         await updateProfile(auth.currentUser!, { displayName: value });
       if (field === 'email') await updateEmail(auth.currentUser!, value);
@@ -662,27 +676,63 @@ export function Account() {
           </div>
           </Form>
 
-          <Collapse activeKey={pwOpen ? ['pw'] : []} onChange={() => setPwOpen(!pwOpen)} style={{ marginTop: 24 }}>
-            <Collapse.Panel header="Change Password" key="pw">
-              <Form layout="vertical">
-                <Form.Item label="Current Password">
-                  <Input.Password value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
-                </Form.Item>
-                <Form.Item label="New Password" help="At least 12 chars & one special" validateStatus={newPassword && newPassword.length < 12 ? 'error' : undefined}>
-                  <Input.Password value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
-                </Form.Item>
-                <Progress percent={strength(newPassword)} showInfo={false} />
-                <Form.Item label="Confirm Password" validateStatus={confirmPassword && confirmPassword !== newPassword ? 'error' : undefined}>
-                  <Input.Password value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
-                </Form.Item>
-                <Form.Item>
-                  <Button type="primary" onClick={changePassword} loading={pwSaving} disabled={!canChangePw}>
-                    Update Password
-                  </Button>
-                </Form.Item>
-              </Form>
-            </Collapse.Panel>
-          </Collapse>
+          <Collapse
+            activeKey={pwOpen ? ['pw'] : []}
+            onChange={() => setPwOpen(!pwOpen)}
+            style={{ marginTop: 24 }}
+            items={[
+              {
+                key: 'pw',
+                label: 'Change Password',
+                children: (
+                  <Form layout="vertical">
+                    <Form.Item label="Current Password">
+                      <Input.Password
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      label="New Password"
+                      help="At least 12 chars & one special"
+                      validateStatus={
+                        newPassword && newPassword.length < 12 ? 'error' : undefined
+                      }
+                    >
+                      <Input.Password
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                      />
+                    </Form.Item>
+                    <Progress percent={strength(newPassword)} showInfo={false} />
+                    <Form.Item
+                      label="Confirm Password"
+                      validateStatus={
+                        confirmPassword && confirmPassword !== newPassword
+                          ? 'error'
+                          : undefined
+                      }
+                    >
+                      <Input.Password
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                      />
+                    </Form.Item>
+                    <Form.Item>
+                      <Button
+                        type="primary"
+                        onClick={changePassword}
+                        loading={pwSaving}
+                        disabled={!canChangePw}
+                      >
+                        Update Password
+                      </Button>
+                    </Form.Item>
+                  </Form>
+                ),
+              },
+            ]}
+          />
 
           <Card type="inner" title="Danger Zone" style={{ marginTop: 24 }}>
             <Row gutter={16}>
