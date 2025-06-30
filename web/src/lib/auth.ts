@@ -4,6 +4,9 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
   sendPasswordResetEmail,
+  browserLocalPersistence,
+  browserSessionPersistence,
+  setPersistence,
 } from 'firebase/auth';
 import {
   collection,
@@ -32,7 +35,11 @@ export async function createAccount(
   return cred.user;
 }
 
-export async function signInWithIdentifier(identifier: string, password: string) {
+export async function signInWithIdentifier(
+  identifier: string,
+  password: string,
+  remember = true,
+) {
   let email = identifier;
   if (!identifier.includes('@')) {
     const q = query(collection(db, 'users'), where('handle', '==', identifier.toLowerCase()));
@@ -40,6 +47,10 @@ export async function signInWithIdentifier(identifier: string, password: string)
     if (snap.empty) throw new Error('User not found');
     email = (snap.docs[0].data() as { email: string }).email;
   }
+  await setPersistence(
+    auth,
+    remember ? browserLocalPersistence : browserSessionPersistence
+  );
   const cred = await signInWithEmailAndPassword(auth, email, password);
   return cred.user;
 }

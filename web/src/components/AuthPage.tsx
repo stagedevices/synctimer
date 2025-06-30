@@ -32,6 +32,9 @@ export function AuthPage() {
 
   const navigate = useNavigate();
 
+  const [signInForm] = Form.useForm();
+  const [createForm] = Form.useForm();
+
   const validateHandle = async (_: unknown, value: string) => {
     if (!value) return Promise.reject('Username is required');
     if (!/^[a-z0-9_]{1,32}$/.test(value)) {
@@ -56,7 +59,7 @@ export function AuthPage() {
 
   const onSignIn = async (vals: any) => {
     try {
-      await signInWithIdentifier(vals.identifier, vals.password);
+      await signInWithIdentifier(vals.identifier, vals.password, vals.remember);
       navigate('/parse');
     } catch (e: any) {
       message.error(e.message || 'Sign in failed');
@@ -81,15 +84,16 @@ export function AuthPage() {
     }
   };
 
-  const onForgot = async (identifier: string) => {
-    if (!identifier) {
+  const onForgot = async (identifier?: string) => {
+    const id = identifier || signInForm.getFieldValue('identifier');
+    if (!id) {
       message.error('Enter your email to reset password');
       return;
     }
-    let email = identifier;
-    if (!identifier.includes('@')) {
+    let email = id;
+    if (!id.includes('@')) {
       const snap = await getDocs(
-        query(collection(db, 'users'), where('handle', '==', identifier.toLowerCase()))
+        query(collection(db, 'users'), where('handle', '==', id.toLowerCase()))
       );
       if (snap.empty) {
         message.error('User not found');
@@ -125,14 +129,19 @@ export function AuthPage() {
                   key: 'signin',
                   label: 'Sign In',
                   children: (
-                    <Form layout="vertical" onFinish={onSignIn}>
+                    <Form
+                      form={signInForm}
+                      layout="vertical"
+                      onFinish={onSignIn}
+                      initialValues={{ remember: true }}
+                    >
                       <Form.Item name="identifier" label="Username or Email" rules={[{ required: true }]}> <Input /> </Form.Item>
                       <Form.Item name="password" label="Password" rules={[{ required: true }]}> <Input.Password /> </Form.Item>
                       <Form.Item name="remember" valuePropName="checked"> <Checkbox>Remember me</Checkbox> </Form.Item>
                       <Form.Item>
                         <Button
                           type="link"
-                          onClick={() => onForgot((document.querySelector('input[name="identifier"]') as HTMLInputElement)?.value || '')}
+                          onClick={() => onForgot(signInForm.getFieldValue('identifier'))}
                           style={{ padding: 0 }}
                         >
                           Forgot password?
@@ -150,12 +159,29 @@ export function AuthPage() {
                   key: 'create',
                   label: 'Create Account',
                   children: (
-                    <Form layout="vertical" onFinish={onCreate}>
+                    <Form form={createForm} layout="vertical" onFinish={onCreate}>
                       <Form.Item name="email" label="Email" rules={[{ required: true, type: 'email' }]}> <Input /> </Form.Item>
                       <Form.Item name="handle" label="Username" rules={[{ validator: validateHandle }]} validateTrigger="onBlur"> <Input /> </Form.Item>
                       <Form.Item name="name" label="Full name"> <Input /> </Form.Item>
                       <Form.Item name="password" label="Password" rules={[passwordRule]}> <Input.Password /> </Form.Item>
-                      <Form.Item name="confirm" label="Confirm password" dependencies={['password']} rules={[{ required: true, validator: (_, value, { getFieldValue }) => value === getFieldValue('password') ? Promise.resolve() : Promise.reject('Passwords do not match') }]}> <Input.Password /> </Form.Item>
+                      <Form.Item
+                        name="confirm"
+                        label="Confirm password"
+                        dependencies={["password"]}
+                        rules={[
+                          { required: true },
+                          ({ getFieldValue }) => ({
+                            validator(_, value) {
+                              if (!value || getFieldValue('password') === value) {
+                                return Promise.resolve();
+                              }
+                              return Promise.reject(new Error('Passwords do not match'));
+                            },
+                          }),
+                        ]}
+                      >
+                        <Input.Password />
+                      </Form.Item>
                       <Form.Item>
                         <Button type="primary" htmlType="submit" block>
                           Create Account
