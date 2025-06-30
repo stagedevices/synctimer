@@ -11,6 +11,19 @@ jobs:
         with: { version: 9 }
       - run: pnpm --dir web install
       - run: pnpm --filter web run build
+      # Clean up old preview channels to avoid hitting the 50 channel quota
+      - run: |
+          node <<'EOF'
+          const {execSync} = require('child_process');
+          const list = execSync('npx firebase-tools hosting:channel:list --project synctimer-dev-464400 --json', {stdio: ['ignore', 'pipe', 'inherit']}).toString();
+          const data = JSON.parse(list);
+          for (const c of data.result || []) {
+            const name = c.name.split('/').pop();
+            if (name !== 'github-actions-preview' && name !== 'live') {
+              execSync(`npx firebase-tools hosting:channel:delete ${name} --project synctimer-dev-464400 --force`, {stdio: 'inherit'});
+            }
+          }
+          EOF
       - run: npx firebase-tools hosting:channel:delete github-actions-preview --project synctimer-dev-464400 --force || true
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
