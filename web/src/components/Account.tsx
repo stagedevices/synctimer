@@ -112,6 +112,7 @@ export function Account() {
   const profileRef = useMemo(() => (uid ? doc(db, 'users', uid) : null), [uid]);
   const photoDoc = useMemo(
     () => (uid ? doc(db, 'users', uid, 'profile', 'photo') : null),
+
     [uid],
   );
   const [profile, setProfile] = useState<Profile | null>(null);
