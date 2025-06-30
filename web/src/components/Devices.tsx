@@ -85,7 +85,7 @@ export function Devices() {
     }
   };
 
-  if (!uid) return <Spin tip="Loading user…" />;
+  if (!uid) return <Spin />;
 
   return (
     <Card
@@ -105,7 +105,7 @@ export function Devices() {
             <QRCodeSVG value={`https://synctimer.app/link?uid=${uid}&token=${token}`} />
           </div>
           {loadingDevices ? (
-            <Spin tip="Loading devices…" />
+            <Spin />
           ) : (
             <List
               dataSource={devices}
@@ -147,7 +147,7 @@ export function Devices() {
           )}
         </>
       ) : (
-        <Spin tip="Preparing link…" />
+        <Spin />
       )}
     </Card>
   );

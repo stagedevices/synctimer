@@ -53,8 +53,8 @@ export function MyFiles() {
     return unsub;
   }, [uid]);
 
-  if (!uid) return <Spin tip="Loading user…" />;
-  if (loading) return <Spin tip="Loading your files…" />;
+  if (!uid) return <Spin />;
+  if (loading) return <Spin />;
 
   return (
     <Card title="My Files">

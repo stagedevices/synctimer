@@ -5,7 +5,7 @@ import { Spin } from 'antd';
 import type { JSX } from 'react';
 
 export function PrivateRoute({ children }: { children: JSX.Element }) {
-  const [user, loading] = useAuthState(auth);
-  if (loading) return <Spin tip="Loading…" />;
-  return user ? children : <Navigate to="/" replace />;
+  const [, loading] = useAuthState(auth);
+  if (loading) return <Spin />;
+  return auth.currentUser ? children : <Navigate to="/" replace />;
 }

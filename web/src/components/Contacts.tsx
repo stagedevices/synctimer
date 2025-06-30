@@ -79,8 +79,8 @@ export function Contacts() {
         </Button>
       }
     >
-      {loading ? (
-        <Spin tip="Loading peers…" />
+        {loading ? (
+          <Spin />
       ) : error ? (
         <Alert type="error" message={error.message} />
       ) : peers.length === 0 ? (
