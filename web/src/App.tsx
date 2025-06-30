@@ -6,6 +6,7 @@ import SharedFiles from './components/SharedFiles';
 import { SentFiles } from './components/SentFiles';
 import { Contacts } from './components/Contacts';
 import { Devices } from './components/Devices';
+
 import { Account as AccountProfile } from './components/Account';
 import Settings from './components/Settings';
 import { AccountLanding } from './pages/AccountLanding';
