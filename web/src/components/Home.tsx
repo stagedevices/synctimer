@@ -69,7 +69,7 @@ export function Home() {
   return (
     <Card title="Sign In" className="glass-card" style={{ margin: '2rem', borderRadius: '1.5rem' }}>
       <Row gutter={[16,16]}>
-        <Col xs={24} sm={12}>
+        <Col span={24}>
           <Button
             type="primary"
             size="large"
@@ -80,7 +80,7 @@ export function Home() {
             Sign in with Google
           </Button>
         </Col>
-        <Col xs={24} sm={12}>
+        <Col span={24}>
           <Button
             size="large"
             block

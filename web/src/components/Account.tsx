@@ -18,7 +18,7 @@ export function Account() {
 
   useEffect(() => {
     if (!uid) return;
-    const ref = doc(db, 'users', uid, 'profile');
+    const ref = doc(db, 'users', uid);
     const unsub = onSnapshot(
       ref,
       (snap) => {
@@ -40,7 +40,7 @@ export function Account() {
     }
   };
 
-  if (!user || !profile) return <Spin tip="Loading profile…" />;
+  if (!user || !profile) return <Spin />;
 
   return (
     <Card title="Account" className="glass-card" style={{ margin: '2rem', borderRadius: '1.5rem' }}>

@@ -2,24 +2,22 @@ import { useEffect, useState } from 'react';
 import { Card, Tag, Input, Button, Spin, message } from 'antd';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '../lib/firebase';
-import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, setDoc, deleteDoc } from 'firebase/firestore';
 
 export default function Settings() {
   const [user] = useAuthState(auth);
   const uid = user?.uid;
-  const [ensembles, setEnsembles] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState('');
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!uid) return;
-    const ref = doc(db, 'users', uid, 'profile');
+    const ref = collection(db, 'users', uid, 'tags');
     const unsub = onSnapshot(
       ref,
       snap => {
-        const data = snap.exists() ? snap.data() as { ensembles?: string[] } : {};
-        setEnsembles(data.ensembles || []);
+        setTags(snap.docs.map(d => d.id));
         setLoading(false);
       },
       err => {
@@ -30,33 +28,33 @@ export default function Settings() {
     return unsub;
   }, [uid]);
 
-  const addTag = () => {
+  const addTag = async () => {
     const t = newTag.trim();
-    if (t && !ensembles.includes(t)) setEnsembles([...ensembles, t]);
-    setNewTag('');
-  };
-
-  const removeTag = (t: string) => setEnsembles(ensembles.filter(e => e !== t));
-
-  const save = async () => {
-    if (!uid) return;
-    setSaving(true);
+    if (!uid || !t) return;
     try {
-      await updateDoc(doc(db, 'users', uid, 'profile'), { ensembles });
-      message.success('Saved');
+      await setDoc(doc(db, 'users', uid, 'tags', t), { name: t });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       message.error(msg);
-    } finally {
-      setSaving(false);
+    }
+    setNewTag('');
+  };
+
+  const removeTag = async (t: string) => {
+    if (!uid) return;
+    try {
+      await deleteDoc(doc(db, 'users', uid, 'tags', t));
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      message.error(msg);
     }
   };
 
-  if (!uid || loading) return <Spin tip="Loading settings…" />;
+  if (!uid || loading) return <Spin />;
 
   return (
     <Card title="Settings" className="glass-card" style={{ margin: '2rem', borderRadius: '1.5rem' }}>
-      {ensembles.map(t => (
+      {tags.map(t => (
         <Tag key={t} closable onClose={() => removeTag(t)} style={{ marginBottom: 4 }}>
           {t}
         </Tag>
@@ -65,15 +63,10 @@ export default function Settings() {
         value={newTag}
         onChange={e => setNewTag(e.target.value)}
         onPressEnter={addTag}
-        placeholder="Add ensemble"
+        placeholder="Add tag"
         style={{ width: 200, marginRight: 8 }}
       />
       <Button onClick={addTag}>Add</Button>
-      <div style={{ marginTop: 8 }}>
-        <Button type="primary" onClick={save} loading={saving}>
-          Save Ensembles
-        </Button>
-      </div>
     </Card>
   );
 }

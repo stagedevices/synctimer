@@ -156,7 +156,7 @@ export function UploadValidate() {
       <Row gutter={[16, 16]}>  
         <Col xs={24} lg={12}>
           <Spin spinning={loading} tip="Parsing, please wait…" size="large">
-            <Card style={glassStyle} bodyStyle={{ height: '100%' }}>
+            <Card style={glassStyle} styles={{ body: { height: '100%' } }}>
               {/* Inline error alert with retry */}
               {error && (
                 <Alert
@@ -215,7 +215,7 @@ export function UploadValidate() {
 
         <Col xs={24} lg={12}>
           <Spin spinning={loading} tip="Rendering results…" size="large">
-            <Card style={glassStyle} bodyStyle={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Card style={glassStyle} styles={{ body: { height: '100%', display: 'flex', flexDirection: 'column' } }}>
               {yaml ? (
                 <>
                   <div style={{ flex: 1, overflow: 'auto' }}>
