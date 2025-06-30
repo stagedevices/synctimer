@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import type { FC } from "react";
 import { List, Card, Button } from "antd";
 import { db, auth } from "../lib/firebase";
 import {
@@ -18,7 +19,7 @@ interface ContactRec {
   addedAt: Timestamp;
 }
 
-export const Contacts: React.FC = () => {
+export const Contacts: FC = () => {
   const [contacts, setContacts] = useState<ContactRec[]>([]);
 
   useEffect(() => {
