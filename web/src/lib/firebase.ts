@@ -14,6 +14,11 @@ import {
   connectFirestoreEmulator,
   type Firestore,
 } from 'firebase/firestore';
+import {
+  getStorage,
+  connectStorageEmulator,
+  type FirebaseStorage,
+} from 'firebase/storage';
 
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -37,6 +42,13 @@ export const db: Firestore = getFirestore(app);
 if (import.meta.env.DEV) {
   // point Firestore to emulator on 8080
   connectFirestoreEmulator(db, "127.0.0.1", 8080);
+}
+
+// — Storage setup —
+export const storage: FirebaseStorage = getStorage(app);
+if (import.meta.env.DEV) {
+  // point Storage to emulator on 9199
+  connectStorageEmulator(storage, "127.0.0.1", 9199);
 }
 
 export const googleProvider = new GoogleAuthProvider();
