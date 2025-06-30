@@ -50,6 +50,7 @@ import imageCompression from 'browser-image-compression';
 import { saveAs } from 'file-saver';
 
 async function getCropped(file: File, area: Area | null): Promise<Blob> {
+
   const url = URL.createObjectURL(file);
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const i = new Image();
@@ -78,6 +79,7 @@ async function getCropped(file: File, area: Area | null): Promise<Blob> {
     0,
     a.width,
     a.height,
+
   );
   return new Promise((resolve) => {
     canvas.toBlob((b) => {
@@ -271,6 +273,7 @@ export function Account() {
     el.classList.add(type === 'success' ? 'animate-success' : 'animate-error');
   };
 
+
   const saveField = async (field: keyof typeof values) => {
     if (!uid || !profileRef) return;
     const value = values[field];
@@ -379,6 +382,7 @@ export function Account() {
               }
               size={96}
             />
+
           </div>
           <p><strong>{values.displayName}</strong></p>
           <p>{values.bio}</p>
@@ -427,6 +431,7 @@ export function Account() {
                   >
                     Cancel
                   </Button>
+
                 </Col>
               </Row>
             </>
@@ -468,6 +473,7 @@ export function Account() {
                 onBlur={() => saveField('pronouns')}
               />
             </Form.Item>
+
             <Button size="small" type="primary" onClick={() => saveField('pronouns')} disabled={values.pronouns === original.pronouns || !!errors.pronouns} loading={savingField === 'pronouns'}>
               Save
             </Button>
