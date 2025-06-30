@@ -21,6 +21,7 @@ import {
 import { auth, db } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
+
 import { CSSTransition, TransitionGroup } from 'react-transition-group';
 
 const SECRET = import.meta.env.VITE_DEVICE_SECRET || 'dev-secret';
@@ -93,6 +94,7 @@ export function Devices() {
         };
         img.onerror = () => message.error('Failed to render barcode');
         img.src = url;
+
       } catch (e) {
         console.error(e);
         message.error('Failed to render barcode');
