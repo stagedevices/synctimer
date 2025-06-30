@@ -157,8 +157,6 @@ export function Account() {
   }, [profileRef, user]);
 
 
-  if (!user || !profile) return <Spin />;
-
   const beforeUpload = (file: File) => {
     if (!['image/jpeg', 'image/png'].includes(file.type)) {
       message.error('JPEG or PNG only');
@@ -187,6 +185,7 @@ export function Account() {
     };
   }, [previewURL]);
 
+
   useEffect(() => {
     if (!photoFile || !croppedArea) return;
     (async () => {
@@ -199,6 +198,8 @@ export function Account() {
       setPreviewURL(URL.createObjectURL(compressed));
     })();
   }, [photoFile, croppedArea]);
+
+  if (!user || !profile) return <Spin />;
 
   const savePhoto = async () => {
     if (!uid || !photoFile || !croppedArea) return;
@@ -262,6 +263,7 @@ export function Account() {
     void el.offsetWidth; // reset
     el.classList.add(type === 'success' ? 'animate-success' : 'animate-error');
   };
+
 
   const saveField = async (field: keyof typeof values) => {
     if (!uid || !profileRef) return;
@@ -443,6 +445,7 @@ export function Account() {
                 onBlur={() => saveField('pronouns')}
               />
             </Form.Item>
+
             <Button size="small" type="primary" onClick={() => saveField('pronouns')} disabled={values.pronouns === original.pronouns || !!errors.pronouns} loading={savingField === 'pronouns'}>
               Save
             </Button>
