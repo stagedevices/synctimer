@@ -18,16 +18,23 @@ export function Devices() {
   const uid = user?.uid;
 
   const [devices, setDevices] = useState<Device[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [nameInput, setNameInput] = useState('');
 
+  // Fetch a one-time link token on mount
   useEffect(() => {
     if (!uid) return;
     getLinkToken(uid)
       .then(setToken)
       .catch((e) => message.error(e instanceof Error ? e.message : String(e)));
+  }, [uid]);
+
+  // Subscribe to devices only after we have a link token
+  useEffect(() => {
+    if (!uid || !token) return;
+    setLoading(true);
     const unsub = onSnapshot(
       collection(db, 'users', uid, 'devices'),
       (snap) => {
@@ -42,7 +49,7 @@ export function Devices() {
       },
     );
     return unsub;
-  }, [uid]);
+  }, [uid, token]);
 
   const saveName = async (id: string) => {
     if (!uid) return;
@@ -93,52 +100,54 @@ export function Devices() {
       }}
     >
       {token ? (
-        <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
-          <QRCodeSVG value={`https://synctimer.app/link?uid=${uid}&token=${token}`} />
-        </div>
+        <>
+          <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+            <QRCodeSVG value={`https://synctimer.app/link?uid=${uid}&token=${token}`} />
+          </div>
+          {loading ? (
+            <Spin tip="Loading devices…" />
+          ) : (
+            <List
+              dataSource={devices}
+              locale={{ emptyText: 'No devices linked yet' }}
+              renderItem={(d) => (
+                <List.Item
+                  actions={[
+                    <Switch
+                      checked={d.pushEnabled}
+                      onChange={(c) => togglePush(d.id, c)}
+                      key="push"
+                    />,
+                    <Button danger onClick={() => unlink(d.id)} key="del">
+                      Unlink
+                    </Button>,
+                  ]}
+                >
+                  <List.Item.Meta
+                    title={
+                      editingId === d.id ? (
+                        <Input
+                          value={nameInput}
+                          onChange={(e) => setNameInput(e.target.value)}
+                          onBlur={() => saveName(d.id)}
+                          onPressEnter={() => saveName(d.id)}
+                          autoFocus
+                        />
+                      ) : (
+                        <Button type="link" onClick={() => { setEditingId(d.id); setNameInput(d.name); }}>
+                          {d.name}
+                        </Button>
+                      )
+                    }
+                    description={d.createdAt?.toDate().toLocaleString()}
+                  />
+                </List.Item>
+              )}
+            />
+          )}
+        </>
       ) : (
         <Spin tip="Preparing link…" />
-      )}
-      {loading ? (
-        <Spin tip="Loading devices…" />
-      ) : (
-        <List
-          dataSource={devices}
-          locale={{ emptyText: 'No devices linked yet' }}
-          renderItem={(d) => (
-            <List.Item
-              actions={[
-                <Switch
-                  checked={d.pushEnabled}
-                  onChange={(c) => togglePush(d.id, c)}
-                  key="push"
-                />,
-                <Button danger onClick={() => unlink(d.id)} key="del">
-                  Unlink
-                </Button>,
-              ]}
-            >
-              <List.Item.Meta
-                title={
-                  editingId === d.id ? (
-                    <Input
-                      value={nameInput}
-                      onChange={(e) => setNameInput(e.target.value)}
-                      onBlur={() => saveName(d.id)}
-                      onPressEnter={() => saveName(d.id)}
-                      autoFocus
-                    />
-                  ) : (
-                    <Button type="link" onClick={() => { setEditingId(d.id); setNameInput(d.name); }}>
-                      {d.name}
-                    </Button>
-                  )
-                }
-                description={d.createdAt?.toDate().toLocaleString()}
-              />
-            </List.Item>
-          )}
-        />
       )}
     </Card>
   );
