@@ -113,6 +113,7 @@ export function Account() {
 
   // username stored separately for easy display
   const [username, setUsername] = useState('');
+  const [loadingUser, setLoadingUser] = useState(true);
 
   const [pwOpen, setPwOpen] = useState(false);
   const [pwSaving, setPwSaving] = useState(false);
@@ -151,10 +152,12 @@ export function Account() {
     if (!uid) return;
     const ref = doc(db, 'users', uid);
     (async () => {
+      setLoadingUser(true);
       try {
         const snap = await getDoc(ref);
 
-        const data = snap.exists() ? ((snap.data() as Profile) || {}) : {};
+        const raw = snap.exists() ? (snap.data() as any) : {};
+        const data: Profile = { ...(raw.profile || {}), ...(raw as Profile) };
         setProfile(data);
         const merged = {
           displayName: data.displayName || auth.currentUser?.displayName || '',
@@ -169,6 +172,8 @@ export function Account() {
         setPreviewURL(data.photoURL || auth.currentUser?.photoURL || null);
       } catch (err: any) {
         message.error(err.message);
+      } finally {
+        setLoadingUser(false);
       }
     })();
   }, [uid]);
@@ -217,7 +222,7 @@ export function Account() {
     })();
   }, [photoFile, croppedArea]);
 
-  if (!user || !profile) return <LoadingSpinner />;
+  if (!user || !profile || loadingUser) return <LoadingSpinner />;
 
   const savePhoto = async () => {
     if (!uid || !photoFile) return;
