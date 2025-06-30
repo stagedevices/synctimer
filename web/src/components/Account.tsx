@@ -287,6 +287,7 @@ export function Account() {
     } catch (e) {
       const msg = (e as FirebaseError).message ?? String(e);
       message.error(msg);
+
     } finally {
       setUploadProgress(0);
       setUploading(false);
@@ -426,7 +427,7 @@ export function Account() {
     if (!uid) return;
     try {
       try {
-        await deleteObject(storageRef(storage, `avatars/${uid}.png`));
+        await deleteObject(storageRef(storage, `avatars/${uid}.jpg`));
       } catch {
         /* ignore */
       }
