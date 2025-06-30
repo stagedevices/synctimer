@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { List, Card, Button, Spin } from 'antd';
 import { db, auth } from '../lib/firebase';
 import { collection, query, orderBy, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
@@ -27,8 +27,9 @@ export function SentFiles() {
     return () => unsub();
   }, []);
 
-  const handleResend = async () => {
+  const handleResend = async (id: string) => {
     // Optional: re-trigger parseUpload or sharing logic
+    void id;
   };
 
   const handleDelete = async (id: string) => {
@@ -52,7 +53,7 @@ export function SentFiles() {
             <List.Item key={file.id}>
               <Card title={file.title}>
                 <p>Sent at: {format(file.createdAt, 'PPPpp')}</p>
-                <Button type="link" onClick={handleResend}>
+                <Button type="link" onClick={() => handleResend(file.id)}>
                   Resend
                 </Button>
                 <Button danger onClick={() => handleDelete(file.id)}>
