@@ -19,7 +19,7 @@ export function App() {
         <Link to="/files">My Files</Link>
         <Link to="/shared">Shared with Me</Link>
         <Link to="/sent">Sent Files</Link>
-        <Link to="/peers">Contacts</Link>
+        <Link to="/contacts">Contacts</Link>
         <Link to="/devices">Link Phone</Link>
         <Link to="/settings">Account</Link>
       </nav>
@@ -29,7 +29,7 @@ export function App() {
         <Route path="/files" element={<MyFiles />} />
         <Route path="/shared" element={<SharedFiles />} />
         <Route path="/sent" element={<SentFiles />} />
-        <Route path="/peers" element={<Contacts />} />
+        <Route path="/contacts" element={<Contacts />} />
         <Route path="/devices" element={<LinkPhone />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>
