@@ -114,32 +114,24 @@ export function AccountLanding() {
     }
   };
 
-  const validateHandle = async (_: unknown, value: string) => {
-    if (!value) return Promise.reject('Username is required');
-    if (!/^[a-z0-9_]{1,32}$/.test(value)) {
-      return Promise.reject('Use a-z, 0-9 or _ (max 32)');
-    }
-    return Promise.resolve();
+  const passwordValidator = async (_: unknown, value: string) => {
+    if (!value) return Promise.reject('Password is required');
+    const re = /^(?=.*[!@#$%^&*()_+\-=[\]{}|;:'",.<>/?]).{12,}$/;
+    return re.test(value)
+      ? Promise.resolve()
+      : Promise.reject('Min 12 chars with symbol');
   };
 
-  const passwordRule = {
-    required: true,
-
-    validator(_: unknown, value: string) {
-      if (!value) return Promise.reject('Password is required');
-      const re = /^(?=.*[!@#$%^&*()_+\-=[\]{}|;:'",.<>/?]).{12,}$/;
-      return re.test(value)
-        ? Promise.resolve()
-        : Promise.reject('Min 12 chars with symbol');
-    },
-  };
 
   return (
     <ConfigProvider theme={{ token: { colorPrimary: '#70C73C', fontFamily: 'system-ui' } }}>
       <Row style={{ minHeight: '100vh' }}>
         <Col xs={0} md={12} />
         <Col xs={24} md={12} className="landing-side">
-          <Card className="glass-card landing-card" style={{ maxWidth: 560, width: '100%' }}>
+          <Card
+            className="glass-card landing-card"
+            style={{ width: '100%', maxWidth: 600, margin: 'auto' }}
+          >
 
             <Row justify="space-between" align="middle" style={{ marginBottom: '1rem' }}>
               <h1 style={{ margin: 0 }}>SyncTimer</h1>
@@ -157,9 +149,27 @@ export function AccountLanding() {
                   key: 'signin',
                   label: 'Sign In',
                   children: (
-                    <Form form={signinForm} layout="vertical" onFinish={handleSignIn} initialValues={{ remember: true }}>
-                      <Form.Item name="identifier" label="Username or Email" required rules={[{ required: true, message: 'Please enter username or email' }]}> <Input /> </Form.Item>
-                      <Form.Item name="password" label="Password" required rules={[{ required: true, message: 'Please enter password' }]}> <Input.Password /> </Form.Item>
+                    <Form
+                      form={signinForm}
+                      layout="vertical"
+                      onFinish={handleSignIn}
+                      onFinishFailed={() => message.error('Please fix the errors in the form')}
+                      initialValues={{ remember: true }}
+                    >
+                      <Form.Item
+                        name="identifier"
+                        label="Username or Email"
+                        rules={[{ required: true, message: 'Username or Email is required' }]}
+                      >
+                        <Input />
+                      </Form.Item>
+                      <Form.Item
+                        name="password"
+                        label="Password"
+                        rules={[{ required: true, message: 'Password is required' }]}
+                      >
+                        <Input.Password />
+                      </Form.Item>
 
                       <Form.Item name="remember" valuePropName="checked"> <Checkbox>Remember me</Checkbox> </Form.Item>
                       <Form.Item>
@@ -179,33 +189,94 @@ export function AccountLanding() {
                   key: 'create',
                   label: 'Create Account',
                     children: (
-                    <Form form={createForm} layout="vertical" onFinish={handleSignUp}>
-                      <Form.Item name="email" label="Email" required rules={[{ required: true, type: 'email' }]}> <Input /> </Form.Item>
-                      <Form.Item name="handle" label="Username" required rules={[{ validator: validateHandle }]} validateTrigger="onBlur"> <Input /> </Form.Item>
-                      <Form.Item name="first" label="First Name" required rules={[{ required: true }]}> <Input /> </Form.Item>
-                      <Form.Item name="last" label="Last Name" required rules={[{ required: true }]}> <Input /> </Form.Item>
-                      <Form.Item name="password" label="Password" required rules={[passwordRule]}> <Input.Password /> </Form.Item>
+                    <Form
+                      form={createForm}
+                      layout="vertical"
+                      onFinish={handleSignUp}
+                      onFinishFailed={() => message.error('Please fix the errors in the form')}
+                    >
+                      <Form.Item
+                        name="email"
+                        label="Email"
+                        rules={[{ required: true, message: 'Email is required', type: 'email' }]}
+                      >
+                        <Input />
+                      </Form.Item>
+                      <Form.Item
+                        name="handle"
+                        label="Username"
+                        rules={[
+                          { required: true, message: 'Username is required' },
+                          {
+                            pattern: /^[a-z0-9_]{1,32}$/,
+                            message:
+                              'Handle must be lowercase alphanumeric or underscore, 1\u201332 chars',
+                          },
+                        ]}
+                        validateTrigger="onBlur"
+                      >
+                        <Input />
+                      </Form.Item>
+                      <Form.Item
+                        name="first"
+                        label="First Name"
+                        rules={[{ required: true, message: 'First Name is required' }]}
+                      >
+                        <Input />
+                      </Form.Item>
+                      <Form.Item
+                        name="last"
+                        label="Last Name"
+                        rules={[{ required: true, message: 'Last Name is required' }]}
+                      >
+                        <Input />
+                      </Form.Item>
+                      <Form.Item
+                        name="password"
+                        label="Password"
+                        rules={[
+                          { required: true, message: 'Password is required' },
+                          { validator: passwordValidator },
+                        ]}
+                      >
+                        <Input.Password />
+                      </Form.Item>
 
                       <Form.Item
                         name="confirm"
                         label="Confirm Password"
                         dependencies={["password"]}
                         hasFeedback
-                        required
-                        rules={[{ required: true, message: 'Please confirm password' }, ({ getFieldValue }) => ({
-
-                          validator(_, value) {
-                            if (!value || getFieldValue('password') === value) {
-                              return Promise.resolve();
-                            }
-                            return Promise.reject(new Error('Passwords do not match'));
-                          },
-                        })]}
+                        rules={[
+                          { required: true, message: 'Confirm Password is required' },
+                          ({ getFieldValue }) => ({
+                            validator(_, value) {
+                              if (!value || getFieldValue('password') === value) {
+                                return Promise.resolve();
+                              }
+                              return Promise.reject('Passwords do not match');
+                            },
+                          }),
+                        ]}
                       >
                         <Input.Password />
                       </Form.Item>
                       <Form.Item>
-                        <Button type="primary" htmlType="submit" block loading={signupLoading} disabled={signupLoading}>
+                        <Button
+                          type="primary"
+                          htmlType="submit"
+                          block
+                          loading={signupLoading}
+                          disabled={
+                            signupLoading ||
+                            !(
+                              createForm.isFieldsTouched(true) &&
+                              createForm
+                                .getFieldsError()
+                                .every(({ errors }) => !errors.length)
+                            )
+                          }
+                        >
                           Create Account
                         </Button>
                       </Form.Item>
@@ -226,7 +297,13 @@ export function AccountLanding() {
         confirmLoading={resetLoading}
       >
         <Form form={resetForm} layout="vertical">
-          <Form.Item name="identifier" label="Email or Handle" required rules={[{ required: true }]}> <Input /> </Form.Item>
+          <Form.Item
+            name="identifier"
+            label="Email or Handle"
+            rules={[{ required: true, message: 'Email or Handle is required' }]}
+          >
+            <Input />
+          </Form.Item>
 
         </Form>
       </Modal>
