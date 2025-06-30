@@ -326,8 +326,7 @@ export function Account() {
       await Promise.all([
         updateProfile(auth.currentUser!, { photoURL: url }),
         photoDoc ? setDoc(photoDoc, { photoURL: url }) : Promise.resolve(),
-        updateDoc(profileRef, { photoURL: url }),
-
+        setDoc(profileRef, { photoURL: url }, { merge: true }),
       ]);
       setProfile((p) => (p ? { ...p, photoURL: url } : p));
       setPreviewURL(url);
@@ -356,7 +355,7 @@ export function Account() {
       await updateProfile(auth.currentUser!, { photoURL: '' });
       await updateDoc(photoDoc, { photoURL: deleteField() });
       if (profileRef) {
-        await updateDoc(profileRef, { photoURL: deleteField() });
+        await setDoc(profileRef, { photoURL: deleteField() }, { merge: true });
       }
 
       setPreviewURL(null);
