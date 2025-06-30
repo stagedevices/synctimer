@@ -281,17 +281,20 @@ export function Account() {
       const lower = value.toLowerCase();
       const userCol = collection(db, 'users');
 
-      // Check modern usernameLower field first
-      const snapLower = await getDocs(query(userCol, where('usernameLower', '==', lower)));
-      let taken = snapLower.docs.find((d) => d.id !== uid);
+      // potential fields where username might live
+      const checks = [
+        query(userCol, where('usernameLower', '==', lower)),
+        query(userCol, where('profile.usernameLower', '==', lower)),
+        query(userCol, where('username', '==', value)),
+        query(userCol, where('profile.username', '==', value)),
+      ];
 
-      // Fall back to legacy username field if needed
-      if (!taken) {
-        const snap = await getDocs(query(userCol, where('username', '==', value)));
-        taken = snap.docs.find((d) => d.id !== uid);
+      for (const q of checks) {
+        const snap = await getDocs(q);
+        const taken = snap.docs.find((d) => d.id !== uid);
+        if (taken) return 'This username is already taken.';
       }
 
-      if (taken) return 'This username is already taken.';
     } else if (field === 'email') {
       const re = /[^@]+@[^.]+\..+/;
       if (!re.test(value)) return 'Invalid email';
