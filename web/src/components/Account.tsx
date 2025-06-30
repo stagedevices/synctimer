@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Card, Avatar, Button, Spin, Row, Col, message } from 'antd';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, db, unlinkProvider } from '../lib/firebase';
+import { auth, db } from '../lib/firebase';
 import { signOut } from 'firebase/auth';
 import { doc, onSnapshot, type Timestamp } from 'firebase/firestore';
 
@@ -31,15 +31,6 @@ export function Account() {
     return unsub;
   }, [uid]);
 
-  const handleUnlink = async (pid: string) => {
-    try {
-      await unlinkProvider(pid);
-      message.success('Disconnected');
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      message.error(msg);
-    }
-  };
 
   if (!user || !profile) return <Spin />;
 
@@ -59,16 +50,6 @@ export function Account() {
             )}
         </Col>
         <Col span={24}>
-          {user.providerData.map((p) => (
-            <Button
-              key={p.providerId}
-              danger
-              onClick={() => handleUnlink(p.providerId)}
-              style={{ marginRight: 8, marginTop: 8 }}
-            >
-              Disconnect {p.providerId}
-            </Button>
-          ))}
           <Button
             type="primary"
             danger
