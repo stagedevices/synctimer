@@ -35,7 +35,9 @@ import {
   collection,
   deleteDoc,
   type Timestamp,
+  type DocumentData,
 } from 'firebase/firestore';
+import type { FirebaseError } from 'firebase/app';
 import {
   getStorage,
   ref as storageRef,
@@ -113,6 +115,7 @@ export function Account() {
 
   // username stored separately for easy display
   const [username, setUsername] = useState('');
+  const [loadingUser, setLoadingUser] = useState(true);
 
   const [pwOpen, setPwOpen] = useState(false);
   const [pwSaving, setPwSaving] = useState(false);
@@ -151,24 +154,36 @@ export function Account() {
     if (!uid) return;
     const ref = doc(db, 'users', uid);
     (async () => {
+      setLoadingUser(true);
       try {
         const snap = await getDoc(ref);
 
-        const data = snap.exists() ? ((snap.data() as Profile) || {}) : {};
+        const raw = (snap.data() || {}) as Partial<Profile> & {
+          profile?: Partial<Profile>;
+          handle?: string;
+        };
+        const data: Profile & { handle?: string } = {
+          ...(raw.profile || {}),
+          ...(raw as Partial<Profile>),
+        };
         setProfile(data);
+        const uname = (data.username || (data as { handle?: string }).handle || '').toString();
         const merged = {
           displayName: data.displayName || auth.currentUser?.displayName || '',
           bio: data.bio || '',
           pronouns: data.pronouns || '',
-          username: data.username || '',
+          username: uname,
           email: data.email || auth.currentUser?.email || '',
         };
         setValues(merged);
         setOriginal(merged);
-        setUsername(merged.username);
+        setUsername(uname);
         setPreviewURL(data.photoURL || auth.currentUser?.photoURL || null);
-      } catch (err: any) {
-        message.error(err.message);
+      } catch (err) {
+        const msg = (err as FirebaseError).message ?? String(err);
+        message.error(msg);
+      } finally {
+        setLoadingUser(false);
       }
     })();
   }, [uid]);
@@ -217,7 +232,7 @@ export function Account() {
     })();
   }, [photoFile, croppedArea]);
 
-  if (!user || !profile) return <LoadingSpinner />;
+  if (!user || !profile || loadingUser) return <LoadingSpinner />;
 
   const savePhoto = async () => {
     if (!uid || !photoFile) return;
@@ -240,8 +255,9 @@ export function Account() {
       setPhotoFile(null);
       setPhotoURL(null);
       setPreviewURL(url);
-    } catch (e: any) {
-      message.error(e.message);
+    } catch (e) {
+      const msg = (e as FirebaseError).message ?? String(e);
+      message.error(msg);
     }
   };
 
@@ -259,14 +275,23 @@ export function Account() {
     } else if (field === 'username') {
       if (!/^[A-Za-z0-9_]{3,32}$/.test(value))
         return '3-32 letters, numbers or _';
-      const snap = await getDocs(
-        query(
-          collection(db, 'users'),
-          where('usernameLower', '==', value.toLowerCase()),
-        ),
-      );
-      const taken = snap.docs.find((d) => d.id !== uid);
-      if (taken) return 'This username is already taken.';
+
+      const lower = value.toLowerCase();
+      const userCol = collection(db, 'users');
+
+      // potential fields where username might live
+      const checks = [
+        query(userCol, where('usernameLower', '==', lower)),
+        query(userCol, where('profile.usernameLower', '==', lower)),
+        query(userCol, where('username', '==', value)),
+        query(userCol, where('profile.username', '==', value)),
+      ];
+
+      for (const q of checks) {
+        const snap = await getDocs(q);
+        const taken = snap.docs.find((d) => d.id !== uid);
+        if (taken) return 'This username is already taken.';
+      }
     } else if (field === 'email') {
       const re = /[^@]+@[^.]+\..+/;
       if (!re.test(value)) return 'Invalid email';
@@ -293,15 +318,16 @@ export function Account() {
     try {
       const data: Record<string, unknown> = { [field]: value };
       if (field === 'username') data.usernameLower = value.toLowerCase();
-      await updateDoc(profileRef, data as any);
+      await updateDoc(profileRef, data as DocumentData);
       if (field === 'displayName')
         await updateProfile(auth.currentUser!, { displayName: value });
       if (field === 'email') await updateEmail(auth.currentUser!, value);
       message.success(`${field} updated`);
       animate(field, 'success');
       setOriginal((o) => ({ ...o, [field]: value }));
-    } catch (e: any) {
-      message.error(`${field} failed: ${e.message}`);
+    } catch (e) {
+      const msg = (e as FirebaseError).message ?? String(e);
+      message.error(`${field} failed: ${msg}`);
       animate(field, 'error');
     } finally {
       setSavingField(null);
@@ -332,8 +358,9 @@ export function Account() {
       setNewPassword('');
       setConfirmPassword('');
       setPwOpen(false);
-    } catch (e: any) {
-      message.error(e.message);
+    } catch (e) {
+      const msg = (e as FirebaseError).message ?? String(e);
+      message.error(msg);
     } finally {
       setPwSaving(false);
     }
@@ -353,8 +380,9 @@ export function Account() {
         type: 'application/json',
       });
       saveAs(blob, 'my-data.json');
-    } catch (e: any) {
-      message.error(e.message);
+    } catch (e) {
+      const msg = (e as FirebaseError).message ?? String(e);
+      message.error(msg);
     }
   };
 
@@ -364,15 +392,18 @@ export function Account() {
       const storage = getStorage();
       try {
         await deleteObject(storageRef(storage, `avatars/${uid}.png`));
-      } catch {}
+      } catch {
+        /* ignore */
+      }
       if (profileRef) {
         await deleteDoc(profileRef);
       }
 
       await deleteDoc(doc(db, 'users', uid));
       await deleteUser(auth.currentUser!);
-    } catch (e: any) {
-      message.error(e.message);
+    } catch (e) {
+      const msg = (e as FirebaseError).message ?? String(e);
+      message.error(msg);
       return;
     }
     message.success('Account deleted');
