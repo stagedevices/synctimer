@@ -17,6 +17,9 @@ importers:
       browser-image-compression:
         specifier: ^2.0.2
         version: 2.0.2
+      bwip-js:
+        specifier: 4.6.0
+        version: 4.6.0
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
@@ -1190,6 +1193,10 @@ packages:
   browserslist@4.25.1:
     resolution: {integrity: sha512-KGj0KoOMXLpSNkkEI6Z6mShmQy0bc1I+T7K9N81k4WWMrfz+6fQ6es80B/YLAeRoKvjYE1YSHHOW1qe9xIVzHw==}
     engines: {node: ^6 || ^7 || ^8 || ^9 || ^10 || ^11 || ^12 || >=13.7}
+    hasBin: true
+
+  bwip-js@4.6.0:
+    resolution: {integrity: sha512-Djr1aQ3d1N8rpLz5XgbpNW/yrP4owC+rk5/pZTSzkqXY0WvqzJ0yJTxA8JJA6WDxOAP1hP70AcnTxiDvthy+/g==}
     hasBin: true
 
   callsites@3.1.0:
@@ -3525,6 +3532,8 @@ snapshots:
       electron-to-chromium: 1.5.177
       node-releases: 2.0.19
       update-browserslist-db: 1.1.3(browserslist@4.25.1)
+
+  bwip-js@4.6.0: {}
 
   callsites@3.1.0: {}
 
