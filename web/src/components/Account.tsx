@@ -33,7 +33,8 @@ import {
   getDocs,
   query,
   where,
-  collection,
+  collectionGroup,
+
   deleteDoc,
   type Timestamp,
 } from 'firebase/firestore';
@@ -60,6 +61,7 @@ interface Profile {
 export function Account() {
   const [user] = useAuthState(auth);
   const uid = user?.uid;
+  const profileRef = uid ? doc(db, 'users', uid, 'profile', 'main') : null;
   const [profile, setProfile] = useState<Profile | null>(null);
   const [form] = Form.useForm();
   const [pwForm] = Form.useForm();
@@ -71,18 +73,30 @@ export function Account() {
   const [pwSaving, setPwSaving] = useState(false);
 
   useEffect(() => {
-    if (!uid) return;
-    const ref = doc(db, 'users', uid, 'profile');
+    if (!profileRef) return;
+
     const unsub = onSnapshot(
-      ref,
+      profileRef,
       (snap) => {
-        const data = snap.exists() ? ((snap.data().profile as Profile) || {}) : {};
+        const data = snap.exists() ? ((snap.data() as Profile) || {}) : {};
+
         setProfile(data);
       },
       (err) => message.error(err.message)
     );
     return unsub;
-  }, [uid]);
+  }, [profileRef]);
+
+  useEffect(() => {
+    if (!profile || !user) return;
+    form.setFieldsValue({
+      displayName: profile.displayName || user.displayName || '',
+      bio: profile.bio || '',
+      pronouns: profile.pronouns || '',
+      username: profile.username || '',
+      email: profile.email || user.email || '',
+    });
+  }, [profile, user, form]);
 
   useEffect(() => {
     if (!profile || !user) return;
@@ -116,7 +130,7 @@ export function Account() {
         const url = await getDownloadURL(ref);
         await Promise.all([
           updateProfile(auth.currentUser!, { photoURL: url }),
-          setDoc(doc(db, 'users', uid), { 'profile.photoURL': url }, { merge: true }),
+          profileRef ? setDoc(profileRef, { photoURL: url }, { merge: true }) : Promise.resolve(),
 
         ]);
         message.success('Photo updated');
@@ -134,9 +148,11 @@ export function Account() {
       return Promise.reject('Use 1-32 lowercase letters or numbers');
     }
     const snap = await getDocs(
-      query(collection(db, 'users'), where('profile.username', '==', value))
+      query(collectionGroup(db, 'profile'), where('username', '==', value))
     );
-    if (!snap.empty && snap.docs[0].id !== uid) {
+    const taken = snap.docs.find((d) => d.ref.parent.parent?.id !== uid);
+    if (taken) {
+
       return Promise.reject('Username already taken');
     }
     return Promise.resolve();
@@ -152,18 +168,20 @@ export function Account() {
       if (vals.displayName !== user.displayName) {
         await updateProfile(auth.currentUser!, { displayName: vals.displayName });
       }
-      await setDoc(
-        doc(db, 'users', uid),
-        {
-          'profile.displayName': vals.displayName,
-          'profile.bio': vals.bio || '',
-          'profile.pronouns': vals.pronouns || '',
-          'profile.username': vals.username,
-          'profile.email': vals.email,
+      if (profileRef) {
+        await setDoc(
+          profileRef,
+          {
+            displayName: vals.displayName,
+            bio: vals.bio || '',
+            pronouns: vals.pronouns || '',
+            username: vals.username,
+            email: vals.email,
+          },
+          { merge: true }
+        );
+      }
 
-        },
-        { merge: true }
-      );
       message.success('Profile updated');
     } catch (e: any) {
       message.error(e.message);
@@ -203,10 +221,14 @@ export function Account() {
   };
 
   const downloadData = async () => {
-    if (!uid) return;
+    if (!uid || !profileRef) return;
     try {
       const userSnap = await getDoc(doc(db, 'users', uid));
-      const data = userSnap.data();
+      const profileSnap = await getDoc(profileRef);
+      const data = {
+        ...(userSnap.data() || {}),
+        profile: profileSnap.data() || {},
+      };
 
       const blob = new Blob([JSON.stringify(data, null, 2)], {
         type: 'application/json',
@@ -224,6 +246,9 @@ export function Account() {
       try {
         await deleteObject(storageRef(storage, `avatars/${uid}.png`));
       } catch {}
+      if (profileRef) {
+        await deleteDoc(profileRef);
+      }
 
       await deleteDoc(doc(db, 'users', uid));
       await deleteUser(auth.currentUser!);
