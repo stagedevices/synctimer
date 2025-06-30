@@ -108,3 +108,27 @@ export const linkDevice = functions.https.onRequest((req, res) => {
     }
   });
 });
+
+export const getLinkToken = functions.https.onRequest((req, res) => {
+  corsHandler(req, res, async () => {
+    const uid = getUidFromHeader(req);
+    if (!uid) {
+      res.status(401).send("Missing Authorization");
+      return;
+    }
+    try {
+      const token = randomUUID();
+      await db
+        .collection("users")
+        .doc(uid)
+        .collection("linkTokens")
+        .doc(token)
+        .set({ createdAt: FieldValue.serverTimestamp() });
+      res.json({ token });
+    } catch (e: any) {
+      console.error("getLinkToken error:", e);
+      const msg = e instanceof Error ? e.message : String(e);
+      res.status(500).send(msg);
+    }
+  });
+});

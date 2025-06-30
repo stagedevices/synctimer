@@ -1,28 +1,33 @@
-import { useState, useEffect } from 'react';
-import { Card, Button, Input, List, Spin, message, QRCode } from 'antd';
-import { auth, db } from '../lib/firebase';
+import { useEffect, useState } from 'react';
+import { Card, List, Input, Button, Spin, Switch, message } from 'antd';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { collection, onSnapshot, deleteDoc, doc, Timestamp } from 'firebase/firestore';
-import { linkDevice } from '../lib/api';
+import { collection, onSnapshot, updateDoc, deleteDoc, doc, Timestamp } from 'firebase/firestore';
+import { auth, db } from '../lib/firebase';
+import { getLinkToken } from '../lib/api';
+import { QRCodeSVG } from 'qrcode.react';
 
 interface Device {
   id: string;
   name: string;
-  token: string;
+  pushEnabled?: boolean;
   createdAt: Timestamp;
 }
 
 export function Devices() {
   const [user] = useAuthState(auth);
+  const uid = user?.uid;
+
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
-  const [linking, setLinking] = useState(false);
-  const [deviceName, setDeviceName] = useState('');
-  const [qr, setQr] = useState<{ deviceId: string; token: string } | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [nameInput, setNameInput] = useState('');
 
   useEffect(() => {
-    const uid = user?.uid;
     if (!uid) return;
+    getLinkToken(uid)
+      .then(setToken)
+      .catch((e) => message.error(e instanceof Error ? e.message : String(e)));
     const unsub = onSnapshot(
       collection(db, 'users', uid, 'devices'),
       (snap) => {
@@ -34,62 +39,65 @@ export function Devices() {
         console.error('Devices:onSnapshot error', err);
         message.error('Failed to load devices');
         setLoading(false);
-      }
+      },
     );
     return unsub;
-  }, [user]);
+  }, [uid]);
 
-  const handleLink = async () => {
-    if (!user) return;
-    setLinking(true);
+  const saveName = async (id: string) => {
+    if (!uid) return;
     try {
-      const res = await linkDevice(user.uid, deviceName || 'Phone');
-      setQr(res);
-      setDeviceName('');
-      message.success('Device linked');
+      await updateDoc(doc(db, 'users', uid, 'devices', id), { name: nameInput });
+      message.success('Device renamed');
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       message.error(msg);
-    } finally {
-      setLinking(false);
     }
+    setEditingId(null);
   };
 
-  const handleRevoke = async (id: string) => {
-    if (!user) return;
+  const togglePush = async (id: string, checked: boolean) => {
+    if (!uid) return;
     try {
-      await deleteDoc(doc(db, 'users', user.uid, 'devices', id));
-      message.success('Device revoked');
+      await updateDoc(doc(db, 'users', uid, 'devices', id), { pushEnabled: checked });
+      message.success('Updated');
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       message.error(msg);
     }
   };
 
-  if (!user) return <Spin tip="Loading user…" />;
+  const unlink = async (id: string) => {
+    if (!uid) return;
+    try {
+      await deleteDoc(doc(db, 'users', uid, 'devices', id));
+      message.success('Device removed');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      message.error(msg);
+    }
+  };
+
+  if (!uid) return <Spin tip="Loading user…" />;
 
   return (
     <Card
       title="Linked Devices"
-      style={{ margin: '2rem', borderRadius: '1.5rem', background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(8px)', boxShadow: '0 8px 32px rgba(0,0,0,0.125)' }}
+      style={{
+        margin: '2rem',
+        borderRadius: '1.5rem',
+        background: 'rgba(255,255,255,0.125)',
+        backdropFilter: 'blur(8px)',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.125)',
+        transition: 'all 250ms',
+      }}
     >
-      <div style={{ marginBottom: '1rem' }}>
-        <Input
-          placeholder="Device name"
-          value={deviceName}
-          onChange={(e) => setDeviceName(e.target.value)}
-          style={{ width: '60%', marginRight: '1rem' }}
-        />
-        <Button type="primary" onClick={handleLink} loading={linking}>
-          Link Phone
-        </Button>
-      </div>
-      {qr && (
+      {token ? (
         <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
-          <QRCode
-            value={`https://synctimer.app/link?device=${qr.deviceId}&token=${qr.token}`}
-          />
+          <QRCodeSVG value={`https://synctimer.app/link?uid=${uid}&token=${token}`} />
         </div>
+      ) : (
+        <Spin tip="Preparing link…" />
       )}
       {loading ? (
         <Spin tip="Loading devices…" />
@@ -99,10 +107,33 @@ export function Devices() {
           locale={{ emptyText: 'No devices linked yet' }}
           renderItem={(d) => (
             <List.Item
-              actions={[<Button danger onClick={() => handleRevoke(d.id)}>Revoke</Button>]}
+              actions={[
+                <Switch
+                  checked={d.pushEnabled}
+                  onChange={(c) => togglePush(d.id, c)}
+                  key="push"
+                />,
+                <Button danger onClick={() => unlink(d.id)} key="del">
+                  Unlink
+                </Button>,
+              ]}
             >
               <List.Item.Meta
-                title={d.name}
+                title={
+                  editingId === d.id ? (
+                    <Input
+                      value={nameInput}
+                      onChange={(e) => setNameInput(e.target.value)}
+                      onBlur={() => saveName(d.id)}
+                      onPressEnter={() => saveName(d.id)}
+                      autoFocus
+                    />
+                  ) : (
+                    <Button type="link" onClick={() => { setEditingId(d.id); setNameInput(d.name); }}>
+                      {d.name}
+                    </Button>
+                  )
+                }
                 description={d.createdAt?.toDate().toLocaleString()}
               />
             </List.Item>
