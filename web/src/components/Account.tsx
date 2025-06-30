@@ -110,7 +110,8 @@ export function Account() {
   const navigate = useNavigate();
   const uid = user?.uid;
   const profileRef = useMemo(
-    () => (uid ? doc(db, 'users', uid, 'profile') : null),
+    () => (uid ? doc(db, 'users', uid, 'profile', 'info') : null),
+
     [uid],
   );
   const photoDoc = useMemo(
@@ -172,7 +173,8 @@ export function Account() {
   // Fetch profile once on mount to avoid resetting values on each keystroke
   useEffect(() => {
     if (!uid) return;
-    const ref = doc(db, 'users', uid, 'profile');
+    const ref = doc(db, 'users', uid, 'profile', 'info');
+
     (async () => {
       setLoadingUser(true);
       try {
@@ -221,7 +223,8 @@ export function Account() {
     if (!cu) return;
     (async () => {
       try {
-        const snap = await getDoc(doc(db, 'users', cu.uid, 'profile'));
+        const snap = await getDoc(doc(db, 'users', cu.uid, 'profile', 'info'));
+
         const data = snap.data() as { photoURL?: string } | undefined;
         if (data?.photoURL) setPreviewURL(data.photoURL);
       } catch {
