@@ -28,13 +28,12 @@ import {
 import {
   doc,
   onSnapshot,
-  setDoc,
+  updateDoc,
   getDoc,
   getDocs,
   query,
   where,
-  collectionGroup,
-
+  collection,
   deleteDoc,
   type Timestamp,
 } from 'firebase/firestore';
@@ -45,8 +44,48 @@ import {
   getDownloadURL,
   deleteObject,
 } from 'firebase/storage';
-import AvatarEditor from 'react-avatar-editor';
+import Cropper, { type Area } from 'react-easy-crop';
+import 'react-easy-crop/react-easy-crop.css';
+import imageCompression from 'browser-image-compression';
 import { saveAs } from 'file-saver';
+
+async function getCropped(file: File, area: Area | null): Promise<Blob> {
+  const url = URL.createObjectURL(file);
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const i = new Image();
+    i.onload = () => resolve(i);
+    i.onerror = reject;
+    i.crossOrigin = 'anonymous';
+    i.src = url;
+  });
+  const a = area ?? {
+    x: 0,
+    y: 0,
+    width: img.naturalWidth,
+    height: img.naturalHeight,
+  };
+  const canvas = document.createElement('canvas');
+  canvas.width = a.width;
+  canvas.height = a.height;
+  const ctx = canvas.getContext('2d')!;
+  ctx.drawImage(
+    img,
+    a.x,
+    a.y,
+    a.width,
+    a.height,
+    0,
+    0,
+    a.width,
+    a.height,
+  );
+  return new Promise((resolve) => {
+    canvas.toBlob((b) => {
+      if (b) resolve(b);
+      URL.revokeObjectURL(url);
+    }, 'image/jpeg');
+  });
+}
 
 interface Profile {
   displayName?: string;
@@ -61,16 +100,44 @@ interface Profile {
 export function Account() {
   const [user] = useAuthState(auth);
   const uid = user?.uid;
-  const profileRef = uid ? doc(db, 'users', uid, 'profile', 'main') : null;
+  const profileRef = uid ? doc(db, 'users', uid) : null;
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [form] = Form.useForm();
   const [pwForm] = Form.useForm();
-  const editorRef = useRef<any>(null);
-  const [photoModal, setPhotoModal] = useState(false);
+
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoURL, setPhotoURL] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedArea, setCroppedArea] = useState<Area | null>(null);
+  const [previewURL, setPreviewURL] = useState<string | null>(null);
+
   const [pwOpen, setPwOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [pwSaving, setPwSaving] = useState(false);
+
+  const [values, setValues] = useState({
+    displayName: '',
+    bio: '',
+    pronouns: '',
+    username: '',
+    email: '',
+  });
+  const [original, setOriginal] = useState({
+    displayName: '',
+    bio: '',
+    pronouns: '',
+    username: '',
+    email: '',
+  });
+  const [errors, setErrors] = useState<Partial<Record<keyof typeof values, string>>>({});
+  const [savingField, setSavingField] = useState<keyof typeof values | null>(null);
+
+  const refs: Record<keyof typeof values, React.RefObject<HTMLDivElement | null>> = {
+    displayName: useRef<HTMLDivElement | null>(null),
+    bio: useRef<HTMLDivElement | null>(null),
+    pronouns: useRef<HTMLDivElement | null>(null),
+    username: useRef<HTMLDivElement | null>(null),
+    email: useRef<HTMLDivElement | null>(null),
+  };
 
   useEffect(() => {
     if (!profileRef) return;
@@ -79,114 +146,153 @@ export function Account() {
       profileRef,
       (snap) => {
         const data = snap.exists() ? ((snap.data() as Profile) || {}) : {};
-
         setProfile(data);
+        const merged = {
+          displayName: data.displayName || user?.displayName || '',
+          bio: data.bio || '',
+          pronouns: data.pronouns || '',
+          username: data.username || '',
+          email: data.email || user?.email || '',
+        };
+        setValues(merged);
+        setOriginal(merged);
+        setPreviewURL(data.photoURL || user?.photoURL || null);
       },
       (err) => message.error(err.message)
     );
     return unsub;
-  }, [profileRef]);
+  }, [profileRef, user]);
 
-  useEffect(() => {
-    if (!profile || !user) return;
-    form.setFieldsValue({
-      displayName: profile.displayName || user.displayName || '',
-      bio: profile.bio || '',
-      pronouns: profile.pronouns || '',
-      username: profile.username || '',
-      email: profile.email || user.email || '',
-    });
-  }, [profile, user, form]);
-
-  useEffect(() => {
-    if (!profile || !user) return;
-    form.setFieldsValue({
-      displayName: profile.displayName || user.displayName || '',
-      bio: profile.bio || '',
-      pronouns: profile.pronouns || '',
-      username: profile.username || '',
-      email: profile.email || user.email || '',
-    });
-  }, [profile, user, form]);
-
-
-  if (!user || !profile) return <Spin />;
 
   const beforeUpload = (file: File) => {
+    if (!['image/jpeg', 'image/png'].includes(file.type)) {
+      message.error('JPEG or PNG only');
+      return Upload.LIST_IGNORE;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      message.error('Max file size 2MB');
+      return Upload.LIST_IGNORE;
+    }
     setPhotoFile(file);
-    setPhotoModal(true);
+    setPhotoURL(URL.createObjectURL(file));
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+    setCroppedArea(null);
     return false;
   };
 
-  const uploadPhoto = async () => {
-    if (!uid || !photoFile || !editorRef.current) return;
-    const canvas = editorRef.current.getImageScaledToCanvas();
-    canvas.toBlob(async (blob: Blob | null) => {
-      if (!blob) return;
-      try {
-        const storage = getStorage();
-        const ref = storageRef(storage, `avatars/${uid}.png`);
-        await uploadBytes(ref, blob);
-        const url = await getDownloadURL(ref);
-        await Promise.all([
-          updateProfile(auth.currentUser!, { photoURL: url }),
-          profileRef ? setDoc(profileRef, { photoURL: url }, { merge: true }) : Promise.resolve(),
+  useEffect(() => {
+    return () => {
+      if (photoURL) URL.revokeObjectURL(photoURL);
+    };
+  }, [photoURL]);
 
-        ]);
-        message.success('Photo updated');
-        setPhotoModal(false);
-        setPhotoFile(null);
-      } catch (e: any) {
-        message.error(e.message);
-      }
-    }, 'image/png');
-  };
+  useEffect(() => {
+    return () => {
+      if (previewURL) URL.revokeObjectURL(previewURL);
+    };
+  }, [previewURL]);
 
-  const checkUsername = async (_: unknown, value: string) => {
-    if (!value) return Promise.reject('Username is required');
-    if (!/^[a-z0-9]{1,32}$/.test(value)) {
-      return Promise.reject('Use 1-32 lowercase letters or numbers');
-    }
-    const snap = await getDocs(
-      query(collectionGroup(db, 'profile'), where('username', '==', value))
-    );
-    const taken = snap.docs.find((d) => d.ref.parent.parent?.id !== uid);
-    if (taken) {
+  useEffect(() => {
+    if (!photoFile) return;
+    (async () => {
+      const blob = await getCropped(photoFile, croppedArea);
+      const croppedFile = new File([blob], photoFile.name, { type: 'image/jpeg' });
+      const compressed = await imageCompression(croppedFile, {
+        maxSizeMB: 0.2,
+        maxWidthOrHeight: 400,
+      });
+      setPreviewURL(URL.createObjectURL(compressed));
+    })();
+  }, [photoFile, croppedArea]);
 
-      return Promise.reject('Username already taken');
-    }
-    return Promise.resolve();
-  };
+  if (!user || !profile) return <Spin />;
 
-  const saveProfile = async (vals: any) => {
-    if (!uid) return;
-    setSaving(true);
+  const savePhoto = async () => {
+    if (!uid || !photoFile) return;
     try {
-      if (vals.email && vals.email !== user.email) {
-        await updateEmail(auth.currentUser!, vals.email);
-      }
-      if (vals.displayName !== user.displayName) {
-        await updateProfile(auth.currentUser!, { displayName: vals.displayName });
-      }
-      if (profileRef) {
-        await setDoc(
-          profileRef,
-          {
-            displayName: vals.displayName,
-            bio: vals.bio || '',
-            pronouns: vals.pronouns || '',
-            username: vals.username,
-            email: vals.email,
-          },
-          { merge: true }
-        );
-      }
-
-      message.success('Profile updated');
+      const blob = await getCropped(photoFile, croppedArea);
+      const croppedFile = new File([blob], photoFile.name, { type: 'image/jpeg' });
+      const compressed = await imageCompression(croppedFile, {
+        maxSizeMB: 0.2,
+        maxWidthOrHeight: 400,
+      });
+      const storage = getStorage();
+      const ref = storageRef(storage, `users/${uid}/profile.jpg`);
+      await uploadBytes(ref, compressed);
+      const url = await getDownloadURL(ref);
+      await Promise.all([
+        updateProfile(auth.currentUser!, { photoURL: url }),
+        updateDoc(profileRef!, { photoURL: url }),
+      ]);
+      message.success('Photo updated');
+      setPhotoFile(null);
+      setPhotoURL(null);
+      setPreviewURL(url);
     } catch (e: any) {
       message.error(e.message);
+    }
+  };
+
+  const validateField = async (
+    field: keyof typeof values,
+    value: string,
+  ): Promise<string | null> => {
+    if (field === 'displayName') {
+      if (!value) return 'Display name is required';
+      if (value.length > 50) return 'Max 50 characters';
+    } else if (field === 'bio') {
+      if (value.length > 160) return 'Max 160 characters';
+    } else if (field === 'pronouns') {
+      if (value.length > 20) return 'Max 20 characters';
+    } else if (field === 'username') {
+      if (!/^[A-Za-z0-9_]{3,32}$/.test(value))
+        return '3-32 letters, numbers or _';
+      const snap = await getDocs(
+        query(
+          collection(db, 'users'),
+          where('usernameLower', '==', value.toLowerCase()),
+        ),
+      );
+      const taken = snap.docs.find((d) => d.id !== uid);
+      if (taken) return 'This username is already taken.';
+    } else if (field === 'email') {
+      const re = /[^@]+@[^.]+\..+/;
+      if (!re.test(value)) return 'Invalid email';
+    }
+    return null;
+  };
+
+  const animate = (field: keyof typeof values, type: 'success' | 'error') => {
+    const el = refs[field].current;
+    if (!el) return;
+    el.classList.remove('animate-success', 'animate-error');
+    void el.offsetWidth; // reset
+    el.classList.add(type === 'success' ? 'animate-success' : 'animate-error');
+  };
+
+  const saveField = async (field: keyof typeof values) => {
+    if (!uid || !profileRef) return;
+    const value = values[field];
+    const err = await validateField(field, value);
+    setErrors((e) => ({ ...e, [field]: err || undefined }));
+    if (err || value === original[field]) return;
+    setSavingField(field);
+    try {
+      const data: Record<string, unknown> = { [field]: value };
+      if (field === 'username') data.usernameLower = value.toLowerCase();
+      await updateDoc(profileRef, data as any);
+      if (field === 'displayName')
+        await updateProfile(auth.currentUser!, { displayName: value });
+      if (field === 'email') await updateEmail(auth.currentUser!, value);
+      message.success('Saved');
+      animate(field, 'success');
+      setOriginal((o) => ({ ...o, [field]: value }));
+    } catch (e: any) {
+      message.error(e.message);
+      animate(field, 'error');
     } finally {
-      setSaving(false);
+      setSavingField(null);
     }
   };
 
@@ -260,28 +366,124 @@ export function Account() {
   };
 
   return (
-    <Card title="Account Settings" className="glass-card" style={{ margin: '2rem', borderRadius: '1.5rem' }}>
-      <Row gutter={[16, 16]}>
-        <Col span={24} style={{ textAlign: 'center' }}>
-          <Avatar src={profile.photoURL || user.photoURL || undefined} size={96} />
-          <div style={{ marginTop: 8 }}>
-            <Upload showUploadList={false} beforeUpload={beforeUpload}>
-              <Button icon={<UploadOutlined />}>Change Photo</Button>
+    <Row gutter={[16, 16]} style={{ margin: '2rem' }}>
+      <Col xs={24} md={12}>
+        <Card title="Preview" className="glass-card">
+          <div style={{ textAlign: 'center', marginBottom: 16 }}>
+            <Avatar src={previewURL || profile.photoURL || user.photoURL || undefined} size={96} />
+          </div>
+          <p><strong>{values.displayName}</strong></p>
+          <p>{values.bio}</p>
+          <p>{values.pronouns}</p>
+          <p>{values.username}</p>
+          <p>{values.email}</p>
+        </Card>
+      </Col>
+      <Col xs={24} md={12}>
+        <Card title="Edit Profile" className="glass-card">
+          <div style={{ textAlign: 'center', marginBottom: 16 }}>
+            <Upload showUploadList={false} beforeUpload={beforeUpload} accept="image/jpeg,image/png">
+              <Button icon={<UploadOutlined />}>Upload Photo</Button>
             </Upload>
           </div>
-        </Col>
-        <Col span={24}>
-          <Form form={form} layout="vertical" onFinish={saveProfile}>
-            <Form.Item name="displayName" label="Full Name" rules={[{ required: true }]}> <Input /> </Form.Item>
-            <Form.Item name="bio" label="Bio" rules={[{ max: 160 }]}> <Input.TextArea rows={2} /> </Form.Item>
-            <Form.Item name="pronouns" label="Pronouns"> <Input /> </Form.Item>
-            <Form.Item name="username" label="Username" rules={[{ validator: checkUsername }]} validateTrigger="onBlur"> <Input /> </Form.Item>
-            <Form.Item name="email" label="Email" rules={[{ required: true, type: 'email' }]}> <Input /> </Form.Item>
-            <Form.Item>
-              <Button type="primary" htmlType="submit" loading={saving}>Save Changes</Button>
+          {photoFile && photoURL && (
+            <>
+              <div style={{ position: 'relative', width: '100%', height: 200 }}>
+                <Cropper
+                  image={photoURL}
+                  crop={crop}
+                  zoom={zoom}
+                  aspect={1}
+                  onCropChange={setCrop}
+                  onZoomChange={setZoom}
+                  onCropComplete={(_, area) => setCroppedArea(area)}
+                />
+              </div>
+              {previewURL && (
+                <div style={{ textAlign: 'center', marginTop: 8 }}>
+                  <img src={previewURL} alt="preview" style={{ width: 100, borderRadius: '50%' }} />
+                </div>
+              )}
+              <Row justify="center" gutter={8} style={{ marginTop: 8 }}>
+                <Col>
+                  <Button type="primary" onClick={savePhoto}>Save Photo</Button>
+                </Col>
+                <Col>
+                  <Button onClick={() => { setPhotoFile(null); setPhotoURL(null); }}>Cancel</Button>
+                </Col>
+              </Row>
+            </>
+          )}
+
+          <Form layout="vertical">
+          <div ref={refs.displayName} style={{ marginTop: 16 }}>
+            <Form.Item label="Display Name" validateStatus={errors.displayName ? 'error' : ''} help={errors.displayName || ''}>
+              <Input
+                value={values.displayName}
+                onChange={(e) => setValues({ ...values, displayName: e.target.value })}
+                onBlur={() => saveField('displayName')}
+              />
             </Form.Item>
+            <Button size="small" type="primary" onClick={() => saveField('displayName')} disabled={values.displayName === original.displayName || !!errors.displayName} loading={savingField === 'displayName'}>
+              Save
+            </Button>
+          </div>
+
+          <div ref={refs.bio} style={{ marginTop: 16 }}>
+            <Form.Item label="Bio" validateStatus={errors.bio ? 'error' : ''} help={errors.bio || ''}>
+              <Input.TextArea
+                rows={2}
+                value={values.bio}
+                onChange={(e) => setValues({ ...values, bio: e.target.value })}
+                onBlur={() => saveField('bio')}
+              />
+            </Form.Item>
+            <Button size="small" type="primary" onClick={() => saveField('bio')} disabled={values.bio === original.bio || !!errors.bio} loading={savingField === 'bio'}>
+              Save
+            </Button>
+          </div>
+
+          <div ref={refs.pronouns} style={{ marginTop: 16 }}>
+            <Form.Item label="Pronouns" validateStatus={errors.pronouns ? 'error' : ''} help={errors.pronouns || ''}>
+              <Input
+                value={values.pronouns}
+                onChange={(e) => setValues({ ...values, pronouns: e.target.value })}
+                onBlur={() => saveField('pronouns')}
+              />
+            </Form.Item>
+            <Button size="small" type="primary" onClick={() => saveField('pronouns')} disabled={values.pronouns === original.pronouns || !!errors.pronouns} loading={savingField === 'pronouns'}>
+              Save
+            </Button>
+          </div>
+
+          <div ref={refs.username} style={{ marginTop: 16 }}>
+            <Form.Item label="Username" validateStatus={errors.username ? 'error' : ''} help={errors.username || ''}>
+              <Input
+                value={values.username}
+                onChange={(e) => setValues({ ...values, username: e.target.value })}
+                onBlur={() => saveField('username')}
+              />
+            </Form.Item>
+            <Button size="small" type="primary" onClick={() => saveField('username')} disabled={values.username === original.username || !!errors.username} loading={savingField === 'username'}>
+              Save
+            </Button>
+          </div>
+
+          <div ref={refs.email} style={{ marginTop: 16 }}>
+            <Form.Item label="Email" validateStatus={errors.email ? 'error' : ''} help={errors.email || ''}>
+              <Input
+                value={values.email}
+                onChange={(e) => setValues({ ...values, email: e.target.value })}
+                onBlur={() => saveField('email')}
+              />
+            </Form.Item>
+            <Button size="small" type="primary" onClick={() => saveField('email')} disabled={values.email === original.email || !!errors.email} loading={savingField === 'email'}>
+              Save
+            </Button>
+          </div>
           </Form>
-          <Collapse activeKey={pwOpen ? ['pw'] : []} onChange={() => setPwOpen(!pwOpen)}>
+
+          <Collapse activeKey={pwOpen ? ['pw'] : []} onChange={() => setPwOpen(!pwOpen)} style={{ marginTop: 24 }}>
             <Collapse.Panel header="Change Password" key="pw">
               <Form form={pwForm} layout="vertical" onFinish={changePassword}>
                 <Form.Item name="current" label="Current Password" rules={[{ required: true }]}> <Input.Password /> </Form.Item>
@@ -300,6 +502,7 @@ export function Account() {
               </Form>
             </Collapse.Panel>
           </Collapse>
+
           <Card type="inner" title="Danger Zone" style={{ marginTop: 24 }}>
             <Row gutter={16}>
               <Col>
@@ -310,13 +513,8 @@ export function Account() {
               </Col>
             </Row>
           </Card>
-        </Col>
-      </Row>
-      <Modal open={photoModal} onOk={uploadPhoto} onCancel={() => setPhotoModal(false)} okText="Save">
-        {photoFile && (
-          <AvatarEditor ref={editorRef} image={photoFile} width={200} height={200} border={50} scale={1} />
-        )}
-      </Modal>
-    </Card>
+        </Card>
+      </Col>
+    </Row>
   );
 }
