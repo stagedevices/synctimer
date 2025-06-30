@@ -6,7 +6,8 @@ import SharedFiles from './components/SharedFiles';
 import { SentFiles } from './components/SentFiles';
 import { Contacts } from './components/Contacts';
 import { Devices } from './components/Devices';
-import { Account } from './pages/Account';
+import { Account } from './components/Account';
+import { AuthPage } from './components/AuthPage';
 import Settings from './components/Settings';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from './lib/firebase';
@@ -14,7 +15,11 @@ import { Spin } from 'antd';
 import type { JSX } from 'react';
 
 function RequireAuth({ children }: { children: JSX.Element }) {
-  return auth.currentUser ? children : <Navigate to="/account" replace />;
+  return auth.currentUser ? children : <Navigate to="/" replace />;
+}
+
+function RequireNoAuth({ children }: { children: JSX.Element }) {
+  return auth.currentUser ? <Navigate to="/parse" replace /> : children;
 }
 
 export function App() {
@@ -36,8 +41,8 @@ export function App() {
         </nav>
       )}
       <Routes>
-        <Route path="/account" element={<Account />} />
-        <Route path="/" element={<RequireAuth><Navigate to="/parse" replace /></RequireAuth>} />
+        <Route path="/account" element={<RequireAuth><Account /></RequireAuth>} />
+        <Route path="/" element={<RequireNoAuth><AuthPage /></RequireNoAuth>} />
         <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
         <Route path="/parse" element={<RequireAuth><UploadValidate /></RequireAuth>} />
         <Route path="/files" element={<RequireAuth><MyFiles /></RequireAuth>} />
