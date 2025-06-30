@@ -16,6 +16,7 @@ import {
 } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import { useAuthState } from 'react-firebase-hooks/auth';
+import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../lib/firebase';
 import {
   updateProfile,
@@ -27,6 +28,7 @@ import {
 } from 'firebase/auth';
 import {
   doc,
+  setDoc,
   updateDoc,
   getDoc,
   getDocs,
@@ -34,6 +36,7 @@ import {
   where,
   collection,
   deleteDoc,
+  deleteField,
   type Timestamp,
   type DocumentData,
 } from 'firebase/firestore';
@@ -104,9 +107,18 @@ interface Profile {
 
 export function Account() {
   const [user] = useAuthState(auth);
+  const navigate = useNavigate();
   const uid = user?.uid;
   const profileRef = useMemo(() => (uid ? doc(db, 'users', uid) : null), [uid]);
+  const photoDoc = useMemo(
+    () => (uid ? doc(db, 'users', uid, 'profile', 'photo') : null),
+    [uid],
+  );
   const [profile, setProfile] = useState<Profile | null>(null);
+
+  useEffect(() => {
+    if (!auth.currentUser) navigate('/account');
+  }, [navigate, user]);
 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoURL, setPhotoURL] = useState<string | null>(null);
@@ -171,7 +183,12 @@ export function Account() {
           ...(raw as Partial<Profile>),
         };
 
-        setProfile(data);
+        let url = data.photoURL || auth.currentUser?.photoURL || null;
+        if (photoDoc) {
+          const photoSnap = await getDoc(photoDoc);
+          url = (photoSnap.data() as { photoURL?: string })?.photoURL || url;
+        }
+        setProfile({ ...data, photoURL: url || undefined });
         const uname = (data.username || (data as { handle?: string }).handle || '').toString();
         const merged = {
           displayName: data.displayName || auth.currentUser?.displayName || '',
@@ -183,7 +200,7 @@ export function Account() {
         setValues(merged);
         setOriginal(merged);
         setUsername(uname);
-        setPreviewURL(data.photoURL || auth.currentUser?.photoURL || null);
+        setPreviewURL(url);
       } catch (err) {
         const msg = (err as FirebaseError).message ?? String(err);
         message.error(msg);
@@ -201,8 +218,8 @@ export function Account() {
       message.error('Images only');
       return Upload.LIST_IGNORE;
     }
-    if (file.size > 2 * 1024 * 1024) {
-      message.error('Max file size 2MB');
+    if (file.size > 5 * 1024 * 1024) {
+      message.error('File too large (max 5 MB)');
       return Upload.LIST_IGNORE;
     }
     setPhotoFile(file);
@@ -215,13 +232,17 @@ export function Account() {
 
   useEffect(() => {
     return () => {
-      if (photoURL) URL.revokeObjectURL(photoURL);
+      if (photoURL && photoURL.startsWith('blob:')) {
+        URL.revokeObjectURL(photoURL);
+      }
     };
   }, [photoURL]);
 
   useEffect(() => {
     return () => {
-      if (previewURL) URL.revokeObjectURL(previewURL);
+      if (previewURL && previewURL.startsWith('blob:')) {
+        URL.revokeObjectURL(previewURL);
+      }
     };
   }, [previewURL]);
 
@@ -232,8 +253,9 @@ export function Account() {
       const blob = await getCropped(photoFile, croppedArea);
       const croppedFile = new File([blob], photoFile.name, { type: 'image/jpeg' });
       const compressed = await imageCompression(croppedFile, {
-        maxWidthOrHeight: 800,
+        maxWidthOrHeight: 1024,
         initialQuality: 0.8,
+        maxSizeMB: 0.2,
         fileType: 'image/jpeg',
         alwaysKeepResolution: true,
       });
@@ -244,7 +266,7 @@ export function Account() {
     };
   }, [photoFile, croppedArea]);
 
-  if (!user || !profile || loadingUser) return <LoadingSpinner />;
+  if (!user || loadingUser) return <LoadingSpinner />;
 
   const savePhoto = async () => {
     if (!uid || !photoFile || !profileRef) return;
@@ -254,8 +276,9 @@ export function Account() {
       const blob = await getCropped(photoFile, croppedArea);
       const croppedFile = new File([blob], `${uid}.jpg`, { type: 'image/jpeg' });
       const compressed = await imageCompression(croppedFile, {
-        maxWidthOrHeight: 800,
+        maxWidthOrHeight: 1024,
         initialQuality: 0.8,
+        maxSizeMB: 0.2,
         fileType: 'image/jpeg',
         alwaysKeepResolution: true,
       });
@@ -279,6 +302,7 @@ export function Account() {
       });
       await Promise.all([
         updateProfile(auth.currentUser!, { photoURL: url }),
+        photoDoc ? setDoc(photoDoc, { photoURL: url }) : Promise.resolve(),
         updateDoc(profileRef, { photoURL: url }),
       ]);
       setProfile((p) => (p ? { ...p, photoURL: url } : p));
@@ -294,6 +318,28 @@ export function Account() {
       setPhotoFile(null);
       setPhotoURL(null);
       setCroppedArea(null);
+    }
+  };
+
+  const removePhoto = async () => {
+    if (!uid || !photoDoc) return;
+    try {
+      await deleteObject(storageRef(storage, `avatars/${uid}.jpg`));
+    } catch {
+      /* ignore */
+    }
+    try {
+      await updateProfile(auth.currentUser!, { photoURL: '' });
+      await updateDoc(photoDoc, { photoURL: deleteField() });
+      if (profileRef) {
+        await updateDoc(profileRef, { photoURL: deleteField() });
+      }
+      setPreviewURL(null);
+      setProfile((p) => (p ? { ...p, photoURL: undefined } : p));
+      message.success('Photo removed');
+    } catch (e) {
+      const msg = (e as FirebaseError).message ?? String(e);
+      message.error(msg);
     }
   };
 
@@ -450,15 +496,17 @@ export function Account() {
       <Col xs={24} md={12}>
         <Card title="Preview" className="glass-card">
           <div style={{ textAlign: 'center', marginBottom: 16 }}>
-            <Avatar
-              src={
-                previewURL ||
-                profile?.photoURL ||
-                user?.photoURL ||
-                undefined
-              }
-              size={96}
-            />
+            <Spin spinning={loadingUser}>
+              <Avatar
+                src={
+                  previewURL ||
+                  profile?.photoURL ||
+                  user?.photoURL ||
+                  undefined
+                }
+                size={96}
+              />
+            </Spin>
 
           </div>
           <p><strong>{values.displayName}</strong></p>
@@ -475,6 +523,11 @@ export function Account() {
               <Button icon={<UploadOutlined />}>Upload Photo</Button>
             </Upload>
           </div>
+          {profile?.photoURL && !photoFile && (
+            <div style={{ textAlign: 'center', marginBottom: 16 }}>
+              <Button danger onClick={removePhoto}>Remove Photo</Button>
+            </div>
+          )}
           {photoFile && photoURL && (
             <Spin spinning={uploading} tip="Uploading...">
               <div style={{ position: 'relative', width: '100%', height: 200 }}>
@@ -512,7 +565,6 @@ export function Account() {
                   >
                     Cancel
                   </Button>
-
                 </Col>
               </Row>
             </Spin>
