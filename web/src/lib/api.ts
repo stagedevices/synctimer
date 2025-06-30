@@ -24,3 +24,21 @@ export async function parseUpload(
   }
   return text;
 }
+
+export async function linkDevice(
+  uid: string,
+  name?: string
+): Promise<{ deviceId: string; token: string }> {
+  const url = `https://us-central1-${import.meta.env.VITE_FIREBASE_PROJECT_ID}.cloudfunctions.net/linkDevice`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${uid}`,
+      ...(name ? { 'X-Device-Name': name } : {}),
+    },
+  });
+  if (!resp.ok) {
+    throw new Error(await resp.text());
+  }
+  return resp.json();
+}

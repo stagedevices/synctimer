@@ -3,6 +3,7 @@ import * as admin from "firebase-admin";
 import { fetch } from "undici";
 import cors from "cors";
 import { FieldValue } from "firebase-admin/firestore";
+import { randomUUID } from "crypto";
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -75,6 +76,34 @@ export const parseUpload = functions.https.onRequest((req, res) => {
         inputSize: xml?.length ?? 0,
         errorMessage: msg,
       });
+      res.status(500).send(msg);
+    }
+  });
+});
+
+export const linkDevice = functions.https.onRequest((req, res) => {
+  corsHandler(req, res, async () => {
+    const uid = getUidFromHeader(req);
+    if (!uid) {
+      res.status(401).send("Missing Authorization");
+      return;
+    }
+    try {
+      const name = req.get("X-Device-Name") || "Unnamed";
+      const token = randomUUID();
+      const doc = await db
+        .collection("users")
+        .doc(uid)
+        .collection("devices")
+        .add({
+          name,
+          token,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      res.json({ deviceId: doc.id, token });
+    } catch (e: any) {
+      console.error("linkDevice error:", e);
+      const msg = e instanceof Error ? e.message : String(e);
       res.status(500).send(msg);
     }
   });
