@@ -40,7 +40,7 @@ if (import.meta.env.DEV) {
 // — Firestore setup —
 export const db: Firestore = getFirestore(app);
 const useEmulator = import.meta.env.VITE_USE_EMULATOR === 'true';
-if (useEmulator) {
+if (import.meta.env.DEV && useEmulator) {
   // point Firestore to emulator on 8080
   connectFirestoreEmulator(db, "127.0.0.1", 8080);
 }

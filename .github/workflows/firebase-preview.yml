@@ -11,6 +11,10 @@ jobs:
         with: { version: 9 }
       - run: pnpm --dir web install
       - run: pnpm --filter web run build
+      - name: Clean previous preview channel
+        run: npx firebase-tools hosting:channel:delete github-actions-preview --project synctimer-dev-464400 --force || true
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SYNCTIMER_DEV }}
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SYNCTIMER_DEV }}
