@@ -150,6 +150,7 @@ export function Account() {
     (async () => {
       try {
         const snap = await getDoc(ref);
+
         const data = snap.exists() ? ((snap.data() as Profile) || {}) : {};
         setProfile(data);
         const merged = {
@@ -167,6 +168,7 @@ export function Account() {
       }
     })();
   }, [uid]);
+
 
 
   const beforeUpload = (file: File) => {
