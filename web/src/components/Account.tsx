@@ -233,13 +233,17 @@ export function Account() {
 
   useEffect(() => {
     return () => {
-      if (photoURL) URL.revokeObjectURL(photoURL);
+      if (photoURL && photoURL.startsWith('blob:')) {
+        URL.revokeObjectURL(photoURL);
+      }
     };
   }, [photoURL]);
 
   useEffect(() => {
     return () => {
-      if (previewURL) URL.revokeObjectURL(previewURL);
+      if (previewURL && previewURL.startsWith('blob:')) {
+        URL.revokeObjectURL(previewURL);
+      }
     };
   }, [previewURL]);
 
@@ -263,7 +267,8 @@ export function Account() {
     };
   }, [photoFile, croppedArea]);
 
-  if (!user) return <LoadingSpinner />;
+  if (!user || loadingUser) return <LoadingSpinner />;
+
 
   const savePhoto = async () => {
     if (!uid || !photoFile || !profileRef) return;
@@ -300,6 +305,8 @@ export function Account() {
       await Promise.all([
         updateProfile(auth.currentUser!, { photoURL: url }),
         photoDoc ? setDoc(photoDoc, { photoURL: url }) : Promise.resolve(),
+        updateDoc(profileRef, { photoURL: url }),
+
       ]);
       setProfile((p) => (p ? { ...p, photoURL: url } : p));
       setPreviewURL(url);
@@ -327,6 +334,10 @@ export function Account() {
     try {
       await updateProfile(auth.currentUser!, { photoURL: '' });
       await updateDoc(photoDoc, { photoURL: deleteField() });
+      if (profileRef) {
+        await updateDoc(profileRef, { photoURL: deleteField() });
+      }
+
       setPreviewURL(null);
       setProfile((p) => (p ? { ...p, photoURL: undefined } : p));
       message.success('Photo removed');

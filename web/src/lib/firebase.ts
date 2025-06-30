@@ -31,8 +31,8 @@ const app = initializeApp(config);
 // — Auth setup —
 export const auth: Auth = getAuth(app);
 if (import.meta.env.DEV) {
-  // point Auth to emulator on 9099
-  connectAuthEmulator(auth, "http://127.0.0.1:9099", {
+  // point Auth to emulator on 9099. use localhost to match the dev site
+  connectAuthEmulator(auth, "http://localhost:9099", {
     disableWarnings: true,
   });
 }
