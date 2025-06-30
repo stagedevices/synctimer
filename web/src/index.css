@@ -76,6 +76,19 @@ button:focus-visible {
   transition: all 250ms;
 }
 
+.landing-card {
+  width: 100%;
+  max-width: 560px;
+  padding: 2rem;
+}
+
+.landing-side {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
 /* fade animations for peer cards */
 .fade-enter {
   opacity: 0;

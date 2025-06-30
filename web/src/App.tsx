@@ -6,20 +6,14 @@ import SharedFiles from './components/SharedFiles';
 import { SentFiles } from './components/SentFiles';
 import { Contacts } from './components/Contacts';
 import { Devices } from './components/Devices';
-import { Account } from './pages/Account';
+import { Account as AccountProfile } from './components/Account';
 import Settings from './components/Settings';
+import { AccountLanding } from './pages/AccountLanding';
+import { ProtectedRoute } from './components/ProtectedRoute';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from './lib/firebase';
-import { Spin } from 'antd';
-import type { JSX } from 'react';
-
-function RequireAuth({ children }: { children: JSX.Element }) {
-  return auth.currentUser ? children : <Navigate to="/" replace />;
-}
-
-function RequireNoAuth({ children }: { children: JSX.Element }) {
-  return auth.currentUser ? <Navigate to="/parse" replace /> : children;
-}
+import { Spin, Button } from 'antd';
+import { signOut } from 'firebase/auth';
 
 export function App() {
   const [user, loading] = useAuthState(auth);
@@ -37,19 +31,27 @@ export function App() {
           <Link to="/sent">Sent Files</Link>
           <Link to="/contacts">Contacts</Link>
           <Link to="/devices">Link Phone</Link>
+          <Button type="link" onClick={() => signOut(auth)}>
+            Sign Out
+          </Button>
         </nav>
       )}
       <Routes>
-        <Route path="/account" element={<RequireNoAuth><Account /></RequireNoAuth>} />
-        <Route path="/" element={<Navigate to="/account" replace />} />
-        <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
-        <Route path="/parse" element={<RequireAuth><UploadValidate /></RequireAuth>} />
-        <Route path="/files" element={<RequireAuth><MyFiles /></RequireAuth>} />
-        <Route path="/shared" element={<RequireAuth><SharedFiles /></RequireAuth>} />
-        <Route path="/sent" element={<RequireAuth><SentFiles /></RequireAuth>} />
-        <Route path="/contacts" element={<RequireAuth><Contacts /></RequireAuth>} />
-        <Route path="/devices" element={<RequireAuth><Devices /></RequireAuth>} />
-        <Route path="*" element={<RequireAuth><Navigate to="/parse" replace /></RequireAuth>} />
+        <Route path="/" element={<AccountLanding />} />
+        <Route
+          path="/account"
+          element={
+            auth.currentUser ? <AccountProfile /> : <AccountLanding />
+          }
+        />
+        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="/parse" element={<ProtectedRoute><UploadValidate /></ProtectedRoute>} />
+        <Route path="/files" element={<ProtectedRoute><MyFiles /></ProtectedRoute>} />
+        <Route path="/shared" element={<ProtectedRoute><SharedFiles /></ProtectedRoute>} />
+        <Route path="/sent" element={<ProtectedRoute><SentFiles /></ProtectedRoute>} />
+        <Route path="/contacts" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
+        <Route path="/devices" element={<ProtectedRoute><Devices /></ProtectedRoute>} />
+        <Route path="*" element={<ProtectedRoute><Navigate to="/parse" replace /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );

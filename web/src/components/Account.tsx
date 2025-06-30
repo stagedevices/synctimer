@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card, Avatar, Button, Spin, Row, Col, message } from 'antd';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db, unlinkProvider } from '../lib/firebase';
+import { signOut } from 'firebase/auth';
 import { doc, onSnapshot, type Timestamp } from 'firebase/firestore';
 
 interface Profile {
@@ -68,6 +69,14 @@ export function Account() {
               Disconnect {p.providerId}
             </Button>
           ))}
+          <Button
+            type="primary"
+            danger
+            onClick={() => signOut(auth)}
+            style={{ marginTop: 16 }}
+          >
+            Sign Out
+          </Button>
         </Col>
       </Row>
     </Card>
