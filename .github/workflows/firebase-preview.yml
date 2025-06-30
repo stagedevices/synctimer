@@ -11,10 +11,10 @@ jobs:
         with: { version: 9 }
       - run: pnpm --dir web install
       - run: pnpm --filter web run build
-      - name: Setup Firebase credentials
-        run: |
-          echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT_SYNCTIMER_DEV }}" > "$HOME/firebase.json"
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/firebase.json" >> $GITHUB_ENV
+      - id: auth
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SYNCTIMER_DEV }}
 
       # Clean up old preview channels to avoid hitting the 50 channel quota
       - run: |
