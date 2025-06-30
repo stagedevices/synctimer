@@ -72,7 +72,7 @@ export function Account() {
 
   useEffect(() => {
     if (!uid) return;
-    const ref = doc(db, 'users', uid);
+    const ref = doc(db, 'users', uid, 'profile');
     const unsub = onSnapshot(
       ref,
       (snap) => {
@@ -117,6 +117,7 @@ export function Account() {
         await Promise.all([
           updateProfile(auth.currentUser!, { photoURL: url }),
           setDoc(doc(db, 'users', uid), { 'profile.photoURL': url }, { merge: true }),
+
         ]);
         message.success('Photo updated');
         setPhotoModal(false);
@@ -159,6 +160,7 @@ export function Account() {
           'profile.pronouns': vals.pronouns || '',
           'profile.username': vals.username,
           'profile.email': vals.email,
+
         },
         { merge: true }
       );
@@ -205,6 +207,7 @@ export function Account() {
     try {
       const userSnap = await getDoc(doc(db, 'users', uid));
       const data = userSnap.data();
+
       const blob = new Blob([JSON.stringify(data, null, 2)], {
         type: 'application/json',
       });
@@ -221,6 +224,7 @@ export function Account() {
       try {
         await deleteObject(storageRef(storage, `avatars/${uid}.png`));
       } catch {}
+
       await deleteDoc(doc(db, 'users', uid));
       await deleteUser(auth.currentUser!);
     } catch (e: any) {
