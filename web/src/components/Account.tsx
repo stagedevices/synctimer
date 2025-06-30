@@ -3,7 +3,7 @@ import {
   Card,
   Avatar,
   Button,
-  Spin as LoadingSpinner,
+  Spin,
   Row,
   Col,
   Form,
@@ -41,7 +41,7 @@ import type { FirebaseError } from 'firebase/app';
 import {
   getStorage,
   ref as storageRef,
-  uploadBytes,
+  uploadBytesResumable,
   getDownloadURL,
   deleteObject,
 } from 'firebase/storage';
@@ -49,6 +49,8 @@ import Cropper, { type Area } from 'react-easy-crop';
 import 'react-easy-crop/react-easy-crop.css';
 import imageCompression from 'browser-image-compression';
 import { saveAs } from 'file-saver';
+
+const LoadingSpinner = Spin;
 
 async function getCropped(file: File, area: Area | null): Promise<Blob> {
 
@@ -112,6 +114,8 @@ export function Account() {
   const [zoom, setZoom] = useState(1);
   const [croppedArea, setCroppedArea] = useState<Area | null>(null);
   const [previewURL, setPreviewURL] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   // username stored separately for easy display
   const [username, setUsername] = useState('');
@@ -193,8 +197,8 @@ export function Account() {
 
 
   const beforeUpload = (file: File) => {
-    if (!['image/jpeg', 'image/png'].includes(file.type)) {
-      message.error('JPEG or PNG only');
+    if (!file.type.startsWith('image/')) {
+      message.error('Images only');
       return Upload.LIST_IGNORE;
     }
     if (file.size > 2 * 1024 * 1024) {
@@ -223,15 +227,21 @@ export function Account() {
 
   useEffect(() => {
     if (!photoFile) return;
+    let cancelled = false;
     (async () => {
       const blob = await getCropped(photoFile, croppedArea);
       const croppedFile = new File([blob], photoFile.name, { type: 'image/jpeg' });
       const compressed = await imageCompression(croppedFile, {
-        maxSizeMB: 0.2,
-        maxWidthOrHeight: 400,
+        maxWidthOrHeight: 800,
+        initialQuality: 0.8,
+        fileType: 'image/jpeg',
+        alwaysKeepResolution: true,
       });
-      setPreviewURL(URL.createObjectURL(compressed));
+      if (!cancelled) setPreviewURL(URL.createObjectURL(compressed));
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [photoFile, croppedArea]);
 
   if (!user || !profile || loadingUser) return <LoadingSpinner />;
@@ -242,24 +252,53 @@ export function Account() {
       const blob = await getCropped(photoFile, croppedArea);
       const croppedFile = new File([blob], photoFile.name, { type: 'image/jpeg' });
       const compressed = await imageCompression(croppedFile, {
-        maxSizeMB: 0.2,
-        maxWidthOrHeight: 400,
+        maxWidthOrHeight: 800,
+        initialQuality: 0.8,
+        fileType: 'image/jpeg',
+        alwaysKeepResolution: true,
       });
       const storage = getStorage();
-      const ref = storageRef(storage, `users/${uid}/profile.jpg`);
-      await uploadBytes(ref, compressed);
-      const url = await getDownloadURL(ref);
+      const ref = storageRef(storage, `avatars/${uid}.jpg`);
+
+      setUploading(true);
+      setUploadProgress(0);
+      const uploadTask = uploadBytesResumable(ref, compressed);
+      const url: string = await new Promise((resolve, reject) => {
+        uploadTask.on(
+          'state_changed',
+          (snap) => {
+            setUploadProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100));
+          },
+          reject,
+          async () => {
+            try {
+              resolve(await getDownloadURL(uploadTask.snapshot.ref));
+            } catch (err) {
+              reject(err);
+            }
+          },
+        );
+      });
       await Promise.all([
         updateProfile(auth.currentUser!, { photoURL: url }),
         updateDoc(profileRef!, { photoURL: url }),
       ]);
+      setProfile((p) => (p ? { ...p, photoURL: url } : p));
       message.success('Photo updated');
       setPhotoFile(null);
       setPhotoURL(null);
       setPreviewURL(url);
+      setUploadProgress(0);
+      setUploading(false);
     } catch (e) {
       const msg = (e as FirebaseError).message ?? String(e);
       message.error(msg);
+      setUploadProgress(0);
+      setUploading(false);
+      setPhotoFile(null);
+      setPhotoURL(null);
+      setPreviewURL(null);
+      setCroppedArea(null);
     }
   };
 
@@ -438,12 +477,12 @@ export function Account() {
       <Col xs={24} md={12}>
         <Card title="Edit Profile" className="glass-card">
           <div style={{ textAlign: 'center', marginBottom: 16 }}>
-            <Upload showUploadList={false} beforeUpload={beforeUpload} accept="image/jpeg,image/png">
+            <Upload showUploadList={false} beforeUpload={beforeUpload} accept="image/*">
               <Button icon={<UploadOutlined />}>Upload Photo</Button>
             </Upload>
           </div>
           {photoFile && photoURL && (
-            <>
+            <Spin spinning={uploading} tip="Uploading...">
               <div style={{ position: 'relative', width: '100%', height: 200 }}>
                 <Cropper
                   image={photoURL}
@@ -460,9 +499,12 @@ export function Account() {
                   <img src={previewURL} alt="preview" style={{ width: 100, borderRadius: '50%' }} />
                 </div>
               )}
+              {uploading && (
+                <Progress percent={uploadProgress} style={{ marginTop: 8 }} />
+              )}
               <Row justify="center" gutter={8} style={{ marginTop: 8 }}>
                 <Col>
-                  <Button type="primary" onClick={savePhoto}>Save Photo</Button>
+                  <Button type="primary" onClick={savePhoto} disabled={uploading}>Save Photo</Button>
                 </Col>
                 <Col>
                   <Button
@@ -472,13 +514,14 @@ export function Account() {
                       setPreviewURL(null);
                       setCroppedArea(null);
                     }}
+                    disabled={uploading}
                   >
                     Cancel
                   </Button>
 
                 </Col>
               </Row>
-            </>
+            </Spin>
           )}
 
           <Form layout="vertical">
