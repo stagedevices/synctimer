@@ -111,6 +111,9 @@ export function Account() {
   const [croppedArea, setCroppedArea] = useState<Area | null>(null);
   const [previewURL, setPreviewURL] = useState<string | null>(null);
 
+  // username stored separately for easy display
+  const [username, setUsername] = useState('');
+
   const [pwOpen, setPwOpen] = useState(false);
   const [pwSaving, setPwSaving] = useState(false);
   // controlled fields for password change
@@ -162,6 +165,7 @@ export function Account() {
         };
         setValues(merged);
         setOriginal(merged);
+        setUsername(merged.username);
         setPreviewURL(data.photoURL || auth.currentUser?.photoURL || null);
       } catch (err: any) {
         message.error(err.message);
@@ -393,7 +397,7 @@ export function Account() {
           <p><strong>{values.displayName}</strong></p>
           <p>{values.bio}</p>
           <p>{values.pronouns}</p>
-          <p>{values.username}</p>
+          <p>@{username}</p>
           <p>{values.email}</p>
         </Card>
       </Col>
@@ -446,69 +450,88 @@ export function Account() {
           <Form layout="vertical">
           <div ref={refs.displayName} style={{ marginTop: 16 }}>
             <Form.Item label="Display Name" validateStatus={errors.displayName ? 'error' : ''} help={errors.displayName || ''}>
-              <Input
-                value={values.displayName}
-                onChange={(e) => setValues({ ...values, displayName: e.target.value })}
-                onBlur={() => saveField('displayName')}
-              />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Input
+                  style={{ flex: 1 }}
+                  value={values.displayName}
+                  onChange={(e) => setValues({ ...values, displayName: e.target.value })}
+                  onBlur={() => saveField('displayName')}
+                />
+                <Button size="small" type="primary" onClick={() => saveField('displayName')} disabled={values.displayName === original.displayName || !!errors.displayName} loading={savingField === 'displayName'}>
+                  Save
+                </Button>
+              </div>
             </Form.Item>
-            <Button size="small" type="primary" onClick={() => saveField('displayName')} disabled={values.displayName === original.displayName || !!errors.displayName} loading={savingField === 'displayName'}>
-              Save
-            </Button>
           </div>
 
           <div ref={refs.bio} style={{ marginTop: 16 }}>
             <Form.Item label="Bio" validateStatus={errors.bio ? 'error' : ''} help={errors.bio || ''}>
-              <Input.TextArea
-                rows={2}
-                value={values.bio}
-                onChange={(e) => setValues({ ...values, bio: e.target.value })}
-                onBlur={() => saveField('bio')}
-              />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Input.TextArea
+                  style={{ flex: 1 }}
+                  rows={2}
+                  value={values.bio}
+                  onChange={(e) => setValues({ ...values, bio: e.target.value })}
+                  onBlur={() => saveField('bio')}
+                />
+                <Button size="small" type="primary" onClick={() => saveField('bio')} disabled={values.bio === original.bio || !!errors.bio} loading={savingField === 'bio'}>
+                  Save
+                </Button>
+              </div>
             </Form.Item>
-            <Button size="small" type="primary" onClick={() => saveField('bio')} disabled={values.bio === original.bio || !!errors.bio} loading={savingField === 'bio'}>
-              Save
-            </Button>
           </div>
 
           <div ref={refs.pronouns} style={{ marginTop: 16 }}>
             <Form.Item label="Pronouns" validateStatus={errors.pronouns ? 'error' : ''} help={errors.pronouns || ''}>
-              <Input
-                value={values.pronouns}
-                onChange={(e) => setValues({ ...values, pronouns: e.target.value })}
-                onBlur={() => saveField('pronouns')}
-              />
-            </Form.Item>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Input
+                  style={{ flex: 1 }}
+                  value={values.pronouns}
+                  onChange={(e) => setValues({ ...values, pronouns: e.target.value })}
+                  onBlur={() => saveField('pronouns')}
+                />
 
-            <Button size="small" type="primary" onClick={() => saveField('pronouns')} disabled={values.pronouns === original.pronouns || !!errors.pronouns} loading={savingField === 'pronouns'}>
-              Save
-            </Button>
+                <Button size="small" type="primary" onClick={() => saveField('pronouns')} disabled={values.pronouns === original.pronouns || !!errors.pronouns} loading={savingField === 'pronouns'}>
+                  Save
+                </Button>
+              </div>
+            </Form.Item>
           </div>
 
           <div ref={refs.username} style={{ marginTop: 16 }}>
             <Form.Item label="Username" validateStatus={errors.username ? 'error' : ''} help={errors.username || ''}>
-              <Input
-                value={values.username}
-                onChange={(e) => setValues({ ...values, username: e.target.value })}
-                onBlur={() => saveField('username')}
-              />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Input
+                  style={{ flex: 1 }}
+                  addonBefore="@"
+                  value={username}
+                  onChange={(e) => {
+                    setUsername(e.target.value);
+                    setValues({ ...values, username: e.target.value });
+                  }}
+                  onBlur={() => saveField('username')}
+                />
+                <Button size="small" type="primary" onClick={() => saveField('username')} disabled={values.username === original.username || !!errors.username} loading={savingField === 'username'}>
+                  Save
+                </Button>
+              </div>
             </Form.Item>
-            <Button size="small" type="primary" onClick={() => saveField('username')} disabled={values.username === original.username || !!errors.username} loading={savingField === 'username'}>
-              Save
-            </Button>
           </div>
 
           <div ref={refs.email} style={{ marginTop: 16 }}>
             <Form.Item label="Email" validateStatus={errors.email ? 'error' : ''} help={errors.email || ''}>
-              <Input
-                value={values.email}
-                onChange={(e) => setValues({ ...values, email: e.target.value })}
-                onBlur={() => saveField('email')}
-              />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Input
+                  style={{ flex: 1 }}
+                  value={values.email}
+                  onChange={(e) => setValues({ ...values, email: e.target.value })}
+                  onBlur={() => saveField('email')}
+                />
+                <Button size="small" type="primary" onClick={() => saveField('email')} disabled={values.email === original.email || !!errors.email} loading={savingField === 'email'}>
+                  Save
+                </Button>
+              </div>
             </Form.Item>
-            <Button size="small" type="primary" onClick={() => saveField('email')} disabled={values.email === original.email || !!errors.email} loading={savingField === 'email'}>
-              Save
-            </Button>
           </div>
           </Form>
 
