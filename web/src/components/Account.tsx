@@ -3,7 +3,7 @@ import {
   Card,
   Avatar,
   Button,
-  Spin,
+  Spin as LoadingSpinner,
   Row,
   Col,
   Form,
@@ -45,10 +45,12 @@ import {
   deleteObject,
 } from 'firebase/storage';
 import Cropper, { type Area } from 'react-easy-crop';
+import 'react-easy-crop/react-easy-crop.css';
 import imageCompression from 'browser-image-compression';
 import { saveAs } from 'file-saver';
 
-async function getCropped(file: File, area: Area): Promise<Blob> {
+async function getCropped(file: File, area: Area | null): Promise<Blob> {
+
   const url = URL.createObjectURL(file);
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const i = new Image();
@@ -57,20 +59,27 @@ async function getCropped(file: File, area: Area): Promise<Blob> {
     i.crossOrigin = 'anonymous';
     i.src = url;
   });
+  const a = area ?? {
+    x: 0,
+    y: 0,
+    width: img.naturalWidth,
+    height: img.naturalHeight,
+  };
   const canvas = document.createElement('canvas');
-  canvas.width = area.width;
-  canvas.height = area.height;
+  canvas.width = a.width;
+  canvas.height = a.height;
   const ctx = canvas.getContext('2d')!;
   ctx.drawImage(
     img,
-    area.x,
-    area.y,
-    area.width,
-    area.height,
+    a.x,
+    a.y,
+    a.width,
+    a.height,
     0,
     0,
-    area.width,
-    area.height,
+    a.width,
+    a.height,
+
   );
   return new Promise((resolve) => {
     canvas.toBlob((b) => {
@@ -170,6 +179,7 @@ export function Account() {
     setPhotoURL(URL.createObjectURL(file));
     setCrop({ x: 0, y: 0 });
     setZoom(1);
+    setCroppedArea(null);
     return false;
   };
 
@@ -185,9 +195,8 @@ export function Account() {
     };
   }, [previewURL]);
 
-
   useEffect(() => {
-    if (!photoFile || !croppedArea) return;
+    if (!photoFile) return;
     (async () => {
       const blob = await getCropped(photoFile, croppedArea);
       const croppedFile = new File([blob], photoFile.name, { type: 'image/jpeg' });
@@ -199,10 +208,10 @@ export function Account() {
     })();
   }, [photoFile, croppedArea]);
 
-  if (!user || !profile) return <Spin />;
+  if (!user || !profile) return <LoadingSpinner />;
 
   const savePhoto = async () => {
-    if (!uid || !photoFile || !croppedArea) return;
+    if (!uid || !photoFile) return;
     try {
       const blob = await getCropped(photoFile, croppedArea);
       const croppedFile = new File([blob], photoFile.name, { type: 'image/jpeg' });
@@ -364,7 +373,16 @@ export function Account() {
       <Col xs={24} md={12}>
         <Card title="Preview" className="glass-card">
           <div style={{ textAlign: 'center', marginBottom: 16 }}>
-            <Avatar src={previewURL || profile.photoURL || user.photoURL || undefined} size={96} />
+            <Avatar
+              src={
+                previewURL ||
+                profile?.photoURL ||
+                user?.photoURL ||
+                undefined
+              }
+              size={96}
+            />
+
           </div>
           <p><strong>{values.displayName}</strong></p>
           <p>{values.bio}</p>
@@ -403,7 +421,17 @@ export function Account() {
                   <Button type="primary" onClick={savePhoto}>Save Photo</Button>
                 </Col>
                 <Col>
-                  <Button onClick={() => { setPhotoFile(null); setPhotoURL(null); }}>Cancel</Button>
+                  <Button
+                    onClick={() => {
+                      setPhotoFile(null);
+                      setPhotoURL(null);
+                      setPreviewURL(null);
+                      setCroppedArea(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+
                 </Col>
               </Row>
             </>
