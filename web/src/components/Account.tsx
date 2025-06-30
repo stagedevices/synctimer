@@ -227,6 +227,7 @@ export function Account() {
 
   useEffect(() => {
     if (!photoFile) return;
+    let cancelled = false;
     (async () => {
       const blob = await getCropped(photoFile, croppedArea);
       const croppedFile = new File([blob], photoFile.name, { type: 'image/jpeg' });
@@ -236,8 +237,11 @@ export function Account() {
         fileType: 'image/jpeg',
         alwaysKeepResolution: true,
       });
-      setPreviewURL(URL.createObjectURL(compressed));
+      if (!cancelled) setPreviewURL(URL.createObjectURL(compressed));
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [photoFile, croppedArea]);
 
   if (!user || !profile || loadingUser) return <LoadingSpinner />;
@@ -279,6 +283,7 @@ export function Account() {
         updateProfile(auth.currentUser!, { photoURL: url }),
         updateDoc(profileRef!, { photoURL: url }),
       ]);
+      setProfile((p) => (p ? { ...p, photoURL: url } : p));
       message.success('Photo updated');
       setPhotoFile(null);
       setPhotoURL(null);
