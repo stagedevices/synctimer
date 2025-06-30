@@ -13,7 +13,9 @@ import { AccountLanding } from './pages/AccountLanding';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from './lib/firebase';
-import { Spin } from 'antd';
+import { Spin, Button } from 'antd';
+import { signOut } from 'firebase/auth';
+
 
 export function App() {
   const [user, loading] = useAuthState(auth);
@@ -31,6 +33,9 @@ export function App() {
           <Link to="/sent">Sent Files</Link>
           <Link to="/contacts">Contacts</Link>
           <Link to="/devices">Link Phone</Link>
+          <Button type="link" onClick={() => signOut(auth)}>
+            Sign Out
+          </Button>
         </nav>
       )}
       <Routes>
