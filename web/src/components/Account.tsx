@@ -112,6 +112,7 @@ export function Account() {
   const profileRef = useMemo(() => (uid ? doc(db, 'users', uid) : null), [uid]);
   const photoDoc = useMemo(
     () => (uid ? doc(db, 'users', uid, 'profile', 'photo') : null),
+
     [uid],
   );
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -268,6 +269,7 @@ export function Account() {
 
   if (!user || loadingUser) return <LoadingSpinner />;
 
+
   const savePhoto = async () => {
     if (!uid || !photoFile || !profileRef) return;
     setUploading(true);
@@ -304,6 +306,7 @@ export function Account() {
         updateProfile(auth.currentUser!, { photoURL: url }),
         photoDoc ? setDoc(photoDoc, { photoURL: url }) : Promise.resolve(),
         updateDoc(profileRef, { photoURL: url }),
+
       ]);
       setProfile((p) => (p ? { ...p, photoURL: url } : p));
       setPreviewURL(url);
@@ -334,6 +337,7 @@ export function Account() {
       if (profileRef) {
         await updateDoc(profileRef, { photoURL: deleteField() });
       }
+
       setPreviewURL(null);
       setProfile((p) => (p ? { ...p, photoURL: undefined } : p));
       message.success('Photo removed');
