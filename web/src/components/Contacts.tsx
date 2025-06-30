@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { List, Card, Button } from "antd";
 import { db, auth } from "../lib/firebase";
 import {
