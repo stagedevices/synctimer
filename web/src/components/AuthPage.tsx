@@ -21,6 +21,21 @@ import {
 } from '../lib/auth';
 import { db, auth } from '../lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
+import type { FirebaseError } from 'firebase/app';
+
+interface SignInVals {
+  identifier: string;
+  password: string;
+  remember?: boolean;
+}
+
+interface CreateVals {
+  email: string;
+  handle: string;
+  name?: string;
+  password: string;
+  confirm: string;
+}
 
 export function AuthPage() {
   const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark');
@@ -57,16 +72,17 @@ export function AuthPage() {
     },
   };
 
-  const onSignIn = async (vals: any) => {
+  const onSignIn = async (vals: SignInVals) => {
     try {
       await signInWithIdentifier(vals.identifier, vals.password, vals.remember);
       navigate('/parse');
-    } catch (e: any) {
-      message.error(e.message || 'Sign in failed');
+    } catch (e) {
+      const msg = (e as FirebaseError).message || 'Sign in failed';
+      message.error(msg);
     }
   };
 
-  const onCreate = async (vals: any) => {
+  const onCreate = async (vals: CreateVals) => {
     if (vals.password !== vals.confirm) {
       message.error('Passwords do not match');
       return;
@@ -81,8 +97,9 @@ export function AuthPage() {
         vals.password
       );
       navigate('/parse');
-    } catch (e: any) {
-      message.error(e.message || 'Account creation failed');
+    } catch (e) {
+      const msg = (e as FirebaseError).message || 'Account creation failed';
+      message.error(msg);
     }
   };
 
@@ -106,8 +123,9 @@ export function AuthPage() {
     try {
       await sendPasswordResetEmail(auth, email);
       message.success('Password reset sent');
-    } catch (e: any) {
-      message.error(e.message || 'Failed to send reset email');
+    } catch (e) {
+      const msg = (e as FirebaseError).message || 'Failed to send reset email';
+      message.error(msg);
     }
   };
 
