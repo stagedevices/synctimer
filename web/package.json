@@ -17,6 +17,7 @@
     "firebase": "^11.9.1",
     "qrcode.react": "^4.2.0",
     "react": "^19.1.0",
+    "react-avatar-editor": "^13.0.0",
     "react-dom": "^19.1.0",
     "react-dropzone": "^14.3.8",
     "react-firebase-hooks": "^5.1.1",
