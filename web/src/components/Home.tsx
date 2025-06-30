@@ -2,7 +2,7 @@ import { Card, Button, Row, Col, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, signInWithGoogle, signInWithApple } from '../lib/firebase';
-import { ReactElement } from 'react';
+import { type ReactElement } from 'react';
 
 function GoogleIcon(): ReactElement {
   return (

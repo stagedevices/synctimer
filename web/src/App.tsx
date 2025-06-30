@@ -1,5 +1,6 @@
 // web/src/App.tsx
 import { BrowserRouter, Routes, Route, Link, Navigate } from "react-router-dom";
+import type { JSX } from 'react';
 import { Home } from './components/Home';
 import { UploadValidate } from './components/UploadValidate';
 import { MyFiles } from './components/MyFiles';

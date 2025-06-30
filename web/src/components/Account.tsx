@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card, Avatar, Button, Tag, Input, Spin, Row, Col, message } from 'antd';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db, unlinkProvider } from '../lib/firebase';
-import { doc, onSnapshot, updateDoc, Timestamp } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, type Timestamp } from 'firebase/firestore';
 
 interface Profile {
   displayName?: string;
