@@ -49,7 +49,7 @@ const appleProvider = new OAuthProvider('apple.com');
 async function writeProfile(cred: UserCredential) {
   const u = cred.user;
   await setDoc(
-    doc(db, 'users', u.uid),
+    doc(db, 'users', u.uid, 'profile'),
     {
       displayName: u.displayName,
       email: u.email,

@@ -52,14 +52,14 @@ export function Home() {
 
   useEffect(() => {
     if (user) {
-      navigate('/', { replace: true });
+      navigate('/account', { replace: true });
     }
   }, [user, navigate]);
 
   const handle = async (fn: () => Promise<unknown>) => {
     try {
       await fn();
-      navigate('/', { replace: true });
+      navigate('/account', { replace: true });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       message.error(msg);
