@@ -1,5 +1,5 @@
 // web/src/App.tsx
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Link, Navigate } from "react-router-dom";
 import { Home } from './components/Home';
 import { UploadValidate } from './components/UploadValidate';
 import { MyFiles } from './components/MyFiles';
@@ -7,7 +7,16 @@ import SharedFiles from './components/SharedFiles';
 import { SentFiles } from './components/SentFiles';
 import { Contacts } from './components/Contacts';
 import { Devices } from './components/Devices';
-import { Settings } from './components/Settings';
+import { Account } from './components/Account';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { auth } from './lib/firebase';
+import { Spin } from 'antd';
+
+function RequireAuth({ children }: { children: JSX.Element }) {
+  const [user, loading] = useAuthState(auth);
+  if (loading) return <Spin tip="Loading…" />;
+  return user ? children : <Navigate to="/" replace />;
+}
 
 
 export function App() {
@@ -21,7 +30,7 @@ export function App() {
         <Link to="/sent">Sent Files</Link>
         <Link to="/contacts">Contacts</Link>
         <Link to="/devices">Link Phone</Link>
-        <Link to="/settings">Account</Link>
+        <Link to="/account">Account</Link>
       </nav>
       <Routes>
         <Route path="/" element={<Home />} />
@@ -31,7 +40,14 @@ export function App() {
         <Route path="/sent" element={<SentFiles />} />
         <Route path="/contacts" element={<Contacts />} />
         <Route path="/devices" element={<Devices />} />
-        <Route path="/settings" element={<Settings />} />
+        <Route
+          path="/account"
+          element={
+            <RequireAuth>
+              <Account />
+            </RequireAuth>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );
