@@ -42,3 +42,17 @@ export async function linkDevice(
   }
   return resp.json();
 }
+
+export async function getLinkToken(uid: string): Promise<string> {
+  const url = `https://us-central1-${import.meta.env.VITE_FIREBASE_PROJECT_ID}.cloudfunctions.net/getLinkToken`;
+  const resp = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${uid}`,
+    },
+  });
+  if (!resp.ok) {
+    throw new Error(await resp.text());
+  }
+  const data = await resp.json();
+  return data.token as string;
+}
