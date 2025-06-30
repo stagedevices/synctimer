@@ -287,7 +287,7 @@ export function Account() {
     } catch (e) {
       const msg = (e as FirebaseError).message ?? String(e);
       message.error(msg);
-      setPreviewURL(null);
+
     } finally {
       setUploadProgress(0);
       setUploading(false);
