@@ -277,13 +277,20 @@ export function Account() {
     } else if (field === 'username') {
       if (!/^[A-Za-z0-9_]{3,32}$/.test(value))
         return '3-32 letters, numbers or _';
-      const snap = await getDocs(
-        query(
-          collection(db, 'users'),
-          where('usernameLower', '==', value.toLowerCase()),
-        ),
-      );
-      const taken = snap.docs.find((d) => d.id !== uid);
+
+      const lower = value.toLowerCase();
+      const userCol = collection(db, 'users');
+
+      // Check modern usernameLower field first
+      const snapLower = await getDocs(query(userCol, where('usernameLower', '==', lower)));
+      let taken = snapLower.docs.find((d) => d.id !== uid);
+
+      // Fall back to legacy username field if needed
+      if (!taken) {
+        const snap = await getDocs(query(userCol, where('username', '==', value)));
+        taken = snap.docs.find((d) => d.id !== uid);
+      }
+
       if (taken) return 'This username is already taken.';
     } else if (field === 'email') {
       const re = /[^@]+@[^.]+\..+/;
