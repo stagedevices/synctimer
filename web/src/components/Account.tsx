@@ -34,6 +34,7 @@ import {
   query,
   where,
   collectionGroup,
+
   deleteDoc,
   type Timestamp,
 } from 'firebase/firestore';
@@ -73,16 +74,29 @@ export function Account() {
 
   useEffect(() => {
     if (!profileRef) return;
+
     const unsub = onSnapshot(
       profileRef,
       (snap) => {
         const data = snap.exists() ? ((snap.data() as Profile) || {}) : {};
+
         setProfile(data);
       },
       (err) => message.error(err.message)
     );
     return unsub;
   }, [profileRef]);
+
+  useEffect(() => {
+    if (!profile || !user) return;
+    form.setFieldsValue({
+      displayName: profile.displayName || user.displayName || '',
+      bio: profile.bio || '',
+      pronouns: profile.pronouns || '',
+      username: profile.username || '',
+      email: profile.email || user.email || '',
+    });
+  }, [profile, user, form]);
 
   useEffect(() => {
     if (!profile || !user) return;
@@ -117,6 +131,7 @@ export function Account() {
         await Promise.all([
           updateProfile(auth.currentUser!, { photoURL: url }),
           profileRef ? setDoc(profileRef, { photoURL: url }, { merge: true }) : Promise.resolve(),
+
         ]);
         message.success('Photo updated');
         setPhotoModal(false);
@@ -137,6 +152,7 @@ export function Account() {
     );
     const taken = snap.docs.find((d) => d.ref.parent.parent?.id !== uid);
     if (taken) {
+
       return Promise.reject('Username already taken');
     }
     return Promise.resolve();
@@ -165,6 +181,7 @@ export function Account() {
           { merge: true }
         );
       }
+
       message.success('Profile updated');
     } catch (e: any) {
       message.error(e.message);
@@ -212,6 +229,7 @@ export function Account() {
         ...(userSnap.data() || {}),
         profile: profileSnap.data() || {},
       };
+
       const blob = new Blob([JSON.stringify(data, null, 2)], {
         type: 'application/json',
       });
@@ -231,6 +249,7 @@ export function Account() {
       if (profileRef) {
         await deleteDoc(profileRef);
       }
+
       await deleteDoc(doc(db, 'users', uid));
       await deleteUser(auth.currentUser!);
     } catch (e: any) {
