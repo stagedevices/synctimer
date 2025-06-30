@@ -39,12 +39,12 @@ import {
 } from 'firebase/firestore';
 import type { FirebaseError } from 'firebase/app';
 import {
-  getStorage,
   ref as storageRef,
   uploadBytesResumable,
   getDownloadURL,
   deleteObject,
 } from 'firebase/storage';
+import { storage } from '../lib/firebase';
 import Cropper, { type Area } from 'react-easy-crop';
 import 'react-easy-crop/react-easy-crop.css';
 import imageCompression from 'browser-image-compression';
@@ -247,21 +247,19 @@ export function Account() {
   if (!user || !profile || loadingUser) return <LoadingSpinner />;
 
   const savePhoto = async () => {
-    if (!uid || !photoFile) return;
+    if (!uid || !photoFile || !profileRef) return;
+    setUploading(true);
+    setUploadProgress(0);
     try {
       const blob = await getCropped(photoFile, croppedArea);
-      const croppedFile = new File([blob], photoFile.name, { type: 'image/jpeg' });
+      const croppedFile = new File([blob], `${uid}.jpg`, { type: 'image/jpeg' });
       const compressed = await imageCompression(croppedFile, {
         maxWidthOrHeight: 800,
         initialQuality: 0.8,
         fileType: 'image/jpeg',
         alwaysKeepResolution: true,
       });
-      const storage = getStorage();
       const ref = storageRef(storage, `avatars/${uid}.jpg`);
-
-      setUploading(true);
-      setUploadProgress(0);
       const uploadTask = uploadBytesResumable(ref, compressed);
       const url: string = await new Promise((resolve, reject) => {
         uploadTask.on(
@@ -269,7 +267,7 @@ export function Account() {
           (snap) => {
             setUploadProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100));
           },
-          reject,
+          (err) => reject(err),
           async () => {
             try {
               resolve(await getDownloadURL(uploadTask.snapshot.ref));
@@ -281,23 +279,19 @@ export function Account() {
       });
       await Promise.all([
         updateProfile(auth.currentUser!, { photoURL: url }),
-        updateDoc(profileRef!, { photoURL: url }),
+        updateDoc(profileRef, { photoURL: url }),
       ]);
       setProfile((p) => (p ? { ...p, photoURL: url } : p));
-      message.success('Photo updated');
-      setPhotoFile(null);
-      setPhotoURL(null);
       setPreviewURL(url);
-      setUploadProgress(0);
-      setUploading(false);
+      message.success('Photo updated');
     } catch (e) {
       const msg = (e as FirebaseError).message ?? String(e);
       message.error(msg);
+    } finally {
       setUploadProgress(0);
       setUploading(false);
       setPhotoFile(null);
       setPhotoURL(null);
-      setPreviewURL(null);
       setCroppedArea(null);
     }
   };
@@ -431,7 +425,6 @@ export function Account() {
   const doDelete = async () => {
     if (!uid) return;
     try {
-      const storage = getStorage();
       try {
         await deleteObject(storageRef(storage, `avatars/${uid}.png`));
       } catch {
