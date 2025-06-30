@@ -35,7 +35,9 @@ import {
   collection,
   deleteDoc,
   type Timestamp,
+  type DocumentData,
 } from 'firebase/firestore';
+import type { FirebaseError } from 'firebase/app';
 import {
   getStorage,
   ref as storageRef,
@@ -156,8 +158,11 @@ export function Account() {
       try {
         const snap = await getDoc(ref);
 
-        const raw = snap.exists() ? (snap.data() as any) : {};
-        const data: Profile = { ...(raw.profile || {}), ...(raw as Profile) };
+        const raw = (snap.data() || {}) as Partial<Profile> & {
+          profile?: Partial<Profile>;
+        };
+        const data: Profile = { ...(raw.profile || {}), ...(raw as Partial<Profile>) } as Profile;
+
         setProfile(data);
         const merged = {
           displayName: data.displayName || auth.currentUser?.displayName || '',
@@ -170,8 +175,10 @@ export function Account() {
         setOriginal(merged);
         setUsername(merged.username);
         setPreviewURL(data.photoURL || auth.currentUser?.photoURL || null);
-      } catch (err: any) {
-        message.error(err.message);
+      } catch (err) {
+        const msg = (err as FirebaseError).message ?? String(err);
+        message.error(msg);
+
       } finally {
         setLoadingUser(false);
       }
@@ -245,8 +252,9 @@ export function Account() {
       setPhotoFile(null);
       setPhotoURL(null);
       setPreviewURL(url);
-    } catch (e: any) {
-      message.error(e.message);
+    } catch (e) {
+      const msg = (e as FirebaseError).message ?? String(e);
+      message.error(msg);
     }
   };
 
@@ -298,15 +306,16 @@ export function Account() {
     try {
       const data: Record<string, unknown> = { [field]: value };
       if (field === 'username') data.usernameLower = value.toLowerCase();
-      await updateDoc(profileRef, data as any);
+      await updateDoc(profileRef, data as DocumentData);
       if (field === 'displayName')
         await updateProfile(auth.currentUser!, { displayName: value });
       if (field === 'email') await updateEmail(auth.currentUser!, value);
       message.success(`${field} updated`);
       animate(field, 'success');
       setOriginal((o) => ({ ...o, [field]: value }));
-    } catch (e: any) {
-      message.error(`${field} failed: ${e.message}`);
+    } catch (e) {
+      const msg = (e as FirebaseError).message ?? String(e);
+      message.error(`${field} failed: ${msg}`);
       animate(field, 'error');
     } finally {
       setSavingField(null);
@@ -337,8 +346,9 @@ export function Account() {
       setNewPassword('');
       setConfirmPassword('');
       setPwOpen(false);
-    } catch (e: any) {
-      message.error(e.message);
+    } catch (e) {
+      const msg = (e as FirebaseError).message ?? String(e);
+      message.error(msg);
     } finally {
       setPwSaving(false);
     }
@@ -358,8 +368,9 @@ export function Account() {
         type: 'application/json',
       });
       saveAs(blob, 'my-data.json');
-    } catch (e: any) {
-      message.error(e.message);
+    } catch (e) {
+      const msg = (e as FirebaseError).message ?? String(e);
+      message.error(msg);
     }
   };
 
@@ -369,15 +380,18 @@ export function Account() {
       const storage = getStorage();
       try {
         await deleteObject(storageRef(storage, `avatars/${uid}.png`));
-      } catch {}
+      } catch {
+        /* ignore */
+      }
       if (profileRef) {
         await deleteDoc(profileRef);
       }
 
       await deleteDoc(doc(db, 'users', uid));
       await deleteUser(auth.currentUser!);
-    } catch (e: any) {
-      message.error(e.message);
+    } catch (e) {
+      const msg = (e as FirebaseError).message ?? String(e);
+      message.error(msg);
       return;
     }
     message.success('Account deleted');
