@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import {
   Card,
   Avatar,
@@ -101,7 +101,7 @@ interface Profile {
 export function Account() {
   const [user] = useAuthState(auth);
   const uid = user?.uid;
-  const profileRef = uid ? doc(db, 'users', uid) : null;
+  const profileRef = useMemo(() => (uid ? doc(db, 'users', uid) : null), [uid]);
   const [profile, setProfile] = useState<Profile | null>(null);
 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -145,10 +145,12 @@ export function Account() {
 
   // Fetch profile once on mount to avoid resetting values on each keystroke
   useEffect(() => {
-    if (!profileRef) return;
+    if (!uid) return;
+    const ref = doc(db, 'users', uid);
     (async () => {
       try {
-        const snap = await getDoc(profileRef);
+        const snap = await getDoc(ref);
+
         const data = snap.exists() ? ((snap.data() as Profile) || {}) : {};
         setProfile(data);
         const merged = {
@@ -165,7 +167,8 @@ export function Account() {
         message.error(err.message);
       }
     })();
-  }, [profileRef]);
+  }, [uid]);
+
 
 
   const beforeUpload = (file: File) => {
