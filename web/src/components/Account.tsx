@@ -27,7 +27,6 @@ import {
 } from 'firebase/auth';
 import {
   doc,
-  onSnapshot,
   updateDoc,
   getDoc,
   getDocs,
@@ -104,7 +103,6 @@ export function Account() {
   const uid = user?.uid;
   const profileRef = uid ? doc(db, 'users', uid) : null;
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [pwForm] = Form.useForm();
 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoURL, setPhotoURL] = useState<string | null>(null);
@@ -115,6 +113,10 @@ export function Account() {
 
   const [pwOpen, setPwOpen] = useState(false);
   const [pwSaving, setPwSaving] = useState(false);
+  // controlled fields for password change
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const [values, setValues] = useState({
     displayName: '',
@@ -141,29 +143,29 @@ export function Account() {
     email: useRef<HTMLDivElement | null>(null),
   };
 
+  // Fetch profile once on mount to avoid resetting values on each keystroke
   useEffect(() => {
     if (!profileRef) return;
-
-    const unsub = onSnapshot(
-      profileRef,
-      (snap) => {
+    (async () => {
+      try {
+        const snap = await getDoc(profileRef);
         const data = snap.exists() ? ((snap.data() as Profile) || {}) : {};
         setProfile(data);
         const merged = {
-          displayName: data.displayName || user?.displayName || '',
+          displayName: data.displayName || auth.currentUser?.displayName || '',
           bio: data.bio || '',
           pronouns: data.pronouns || '',
           username: data.username || '',
-          email: data.email || user?.email || '',
+          email: data.email || auth.currentUser?.email || '',
         };
         setValues(merged);
         setOriginal(merged);
-        setPreviewURL(data.photoURL || user?.photoURL || null);
-      },
-      (err) => message.error(err.message)
-    );
-    return unsub;
-  }, [profileRef, user]);
+        setPreviewURL(data.photoURL || auth.currentUser?.photoURL || null);
+      } catch (err: any) {
+        message.error(err.message);
+      }
+    })();
+  }, [profileRef]);
 
 
   const beforeUpload = (file: File) => {
@@ -288,11 +290,11 @@ export function Account() {
       if (field === 'displayName')
         await updateProfile(auth.currentUser!, { displayName: value });
       if (field === 'email') await updateEmail(auth.currentUser!, value);
-      message.success('Saved');
+      message.success(`${field} updated`);
       animate(field, 'success');
       setOriginal((o) => ({ ...o, [field]: value }));
     } catch (e: any) {
-      message.error(e.message);
+      message.error(`${field} failed: ${e.message}`);
       animate(field, 'error');
     } finally {
       setSavingField(null);
@@ -308,19 +310,20 @@ export function Account() {
     return (score / 4) * 100;
   };
 
-  const changePassword = async (vals: any) => {
+  const strongEnough = newPassword.length >= 12 && /[^A-Za-z0-9]/.test(newPassword);
+  const canChangePw = !!currentPassword && newPassword === confirmPassword && strongEnough;
+
+  const changePassword = async () => {
     if (!user?.email) return;
-    if (vals.new !== vals.confirm) {
-      message.error('Passwords do not match');
-      return;
-    }
     setPwSaving(true);
     try {
-      const cred = EmailAuthProvider.credential(user.email, vals.current);
+      const cred = EmailAuthProvider.credential(user.email, currentPassword);
       await reauthenticateWithCredential(auth.currentUser!, cred);
-      await updatePassword(auth.currentUser!, vals.new);
-      message.success('Password updated');
-      pwForm.resetFields();
+      await updatePassword(auth.currentUser!, newPassword);
+      message.success('Password changed');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
       setPwOpen(false);
     } catch (e: any) {
       message.error(e.message);
@@ -508,19 +511,21 @@ export function Account() {
 
           <Collapse activeKey={pwOpen ? ['pw'] : []} onChange={() => setPwOpen(!pwOpen)} style={{ marginTop: 24 }}>
             <Collapse.Panel header="Change Password" key="pw">
-              <Form form={pwForm} layout="vertical" onFinish={changePassword}>
-                <Form.Item name="current" label="Current Password" rules={[{ required: true }]}> <Input.Password /> </Form.Item>
-                <Form.Item name="new" label="New Password" rules={[{ required: true, min: 12, pattern: /[^A-Za-z0-9]/ }]}> <Input.Password /> </Form.Item>
-                <Progress percent={strength(pwForm.getFieldValue('new') || '')} showInfo={false} />
-                <Form.Item name="confirm" label="Confirm Password" dependencies={['new']} rules={[{ required: true }, ({ getFieldValue }) => ({
-                  validator(_, value) {
-                    return !value || getFieldValue('new') === value ? Promise.resolve() : Promise.reject('Passwords do not match');
-                  },
-                })]}>
-                  <Input.Password />
+              <Form layout="vertical">
+                <Form.Item label="Current Password">
+                  <Input.Password value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
+                </Form.Item>
+                <Form.Item label="New Password" help="At least 12 chars & one special" validateStatus={newPassword && newPassword.length < 12 ? 'error' : undefined}>
+                  <Input.Password value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+                </Form.Item>
+                <Progress percent={strength(newPassword)} showInfo={false} />
+                <Form.Item label="Confirm Password" validateStatus={confirmPassword && confirmPassword !== newPassword ? 'error' : undefined}>
+                  <Input.Password value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
                 </Form.Item>
                 <Form.Item>
-                  <Button type="primary" htmlType="submit" loading={pwSaving}>Update Password</Button>
+                  <Button type="primary" onClick={changePassword} loading={pwSaving} disabled={!canChangePw}>
+                    Update Password
+                  </Button>
                 </Form.Item>
               </Form>
             </Collapse.Panel>
