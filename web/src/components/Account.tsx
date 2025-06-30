@@ -50,6 +50,7 @@ import imageCompression from 'browser-image-compression';
 import { saveAs } from 'file-saver';
 
 async function getCropped(file: File, area: Area | null): Promise<Blob> {
+
   const url = URL.createObjectURL(file);
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const i = new Image();
@@ -78,6 +79,7 @@ async function getCropped(file: File, area: Area | null): Promise<Blob> {
     0,
     a.width,
     a.height,
+
   );
   return new Promise((resolve) => {
     canvas.toBlob((b) => {
@@ -178,6 +180,7 @@ export function Account() {
     setCrop({ x: 0, y: 0 });
     setZoom(1);
     setCroppedArea(null);
+
     return false;
   };
 
@@ -206,10 +209,22 @@ export function Account() {
     })();
   }, [photoFile, croppedArea]);
 
-  if (!user || !profile) return <Spin />;
+  useEffect(() => {
+    if (!photoFile || !croppedArea) return;
+    (async () => {
+      const blob = await getCropped(photoFile, croppedArea);
+      const croppedFile = new File([blob], photoFile.name, { type: 'image/jpeg' });
+      const compressed = await imageCompression(croppedFile, {
+        maxSizeMB: 0.2,
+        maxWidthOrHeight: 400,
+      });
+      setPreviewURL(URL.createObjectURL(compressed));
+    })();
+  }, [photoFile, croppedArea]);
 
   const savePhoto = async () => {
     if (!uid || !photoFile) return;
+
     try {
       const blob = await getCropped(photoFile, croppedArea);
       const croppedFile = new File([blob], photoFile.name, { type: 'image/jpeg' });
@@ -270,6 +285,7 @@ export function Account() {
     void el.offsetWidth; // reset
     el.classList.add(type === 'success' ? 'animate-success' : 'animate-error');
   };
+
 
   const saveField = async (field: keyof typeof values) => {
     if (!uid || !profileRef) return;
@@ -419,6 +435,7 @@ export function Account() {
                   >
                     Cancel
                   </Button>
+
                 </Col>
               </Row>
             </>
@@ -460,6 +477,7 @@ export function Account() {
                 onBlur={() => saveField('pronouns')}
               />
             </Form.Item>
+
             <Button size="small" type="primary" onClick={() => saveField('pronouns')} disabled={values.pronouns === original.pronouns || !!errors.pronouns} loading={savingField === 'pronouns'}>
               Save
             </Button>
