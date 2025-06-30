@@ -43,8 +43,8 @@ if (import.meta.env.DEV) {
   connectFirestoreEmulator(db, "127.0.0.1", 8080);
 }
 
-const googleProvider = new GoogleAuthProvider();
-const appleProvider = new OAuthProvider('apple.com');
+export const googleProvider = new GoogleAuthProvider();
+export const appleProvider = new OAuthProvider('apple.com');
 
 async function writeProfile(cred: UserCredential) {
   const u = cred.user;
