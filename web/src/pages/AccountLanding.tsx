@@ -43,7 +43,9 @@ export function AccountLanding() {
   interface SignUpVals {
     email: string;
     handle: string;
-    name?: string;
+    first: string;
+    last: string;
+
     password: string;
     confirm: string;
   }
@@ -77,7 +79,14 @@ export function AccountLanding() {
     }
     setSignupLoading(true);
     try {
-      await signUp(vals.email, vals.handle, vals.name || '', vals.password);
+      await signUp(
+        vals.email.trim(),
+        vals.handle.trim(),
+        vals.first.trim(),
+        vals.last.trim(),
+        vals.password
+      );
+
       message.success('Account created');
       navigate('/parse');
     } catch (e: unknown) {
@@ -117,6 +126,8 @@ export function AccountLanding() {
   };
 
   const passwordRule = {
+    required: true,
+
     validator(_: unknown, value: string) {
       if (!value) return Promise.reject('Password is required');
       const re = /^(?=.*[!@#$%^&*()_+\-=[\]{}|;:'",.<>/?]).{12,}$/;
@@ -128,9 +139,10 @@ export function AccountLanding() {
 
   return (
     <ConfigProvider theme={{ token: { colorPrimary: '#70C73C', fontFamily: 'system-ui' } }}>
-      <Row justify="center" align="middle" style={{ minHeight: '100vh' }}>
-        <Col xs={23} sm={16} md={12} lg={8}>
-          <Card className="glass-card">
+      <Row justify="center" align="middle" style={{ minHeight: '100vh', padding: '1rem' }}>
+        <Col xs={24} sm={20} md={16} lg={12} xl={8}>
+          <Card className="glass-card landing-card" style={{ maxWidth: 520, margin: '0 auto' }}>
+
             <Row justify="space-between" align="middle" style={{ marginBottom: '1rem' }}>
               <h1 style={{ margin: 0 }}>SyncTimer</h1>
               <Switch
@@ -147,8 +159,9 @@ export function AccountLanding() {
                   label: 'Sign In',
                   children: (
                     <Form form={signinForm} layout="vertical" onFinish={handleSignIn} initialValues={{ remember: true }}>
-                      <Form.Item name="identifier" label="Username or Email" rules={[{ required: true }]}> <Input /> </Form.Item>
-                      <Form.Item name="password" label="Password" rules={[{ required: true }]}> <Input.Password /> </Form.Item>
+                      <Form.Item name="identifier" label="Username or Email" rules={[{ required: true, message: 'Please enter username or email' }]}> <Input /> </Form.Item>
+                      <Form.Item name="password" label="Password" rules={[{ required: true, message: 'Please enter password' }]}> <Input.Password /> </Form.Item>
+
                       <Form.Item name="remember" valuePropName="checked"> <Checkbox>Remember me</Checkbox> </Form.Item>
                       <Form.Item>
                         <Button type="link" style={{ padding: 0 }} onClick={() => setResetOpen(true)}>
@@ -166,17 +179,20 @@ export function AccountLanding() {
                 {
                   key: 'create',
                   label: 'Create Account',
-                  children: (
+                    children: (
                     <Form form={createForm} layout="vertical" onFinish={handleSignUp}>
                       <Form.Item name="email" label="Email" rules={[{ required: true, type: 'email' }]}> <Input /> </Form.Item>
                       <Form.Item name="handle" label="Username" rules={[{ validator: validateHandle }]} validateTrigger="onBlur"> <Input /> </Form.Item>
-                      <Form.Item name="name" label="Full Name"> <Input /> </Form.Item>
-                      <Form.Item name="password" label="Password" rules={[passwordRule]}> <Input.Password /> </Form.Item>
+                      <Form.Item name="first" label="First Name" rules={[{ required: true }]}> <Input /> </Form.Item>
+                      <Form.Item name="last" label="Last Name" rules={[{ required: true }]}> <Input /> </Form.Item>
+                      <Form.Item name="password" label="Password" rules={[passwordRule]} required> <Input.Password /> </Form.Item>
+
                       <Form.Item
                         name="confirm"
                         label="Confirm Password"
                         dependencies={["password"]}
-                        rules={[{ required: true }, ({ getFieldValue }) => ({
+                        rules={[{ required: true, message: 'Please confirm password' }, ({ getFieldValue }) => ({
+
                           validator(_, value) {
                             if (!value || getFieldValue('password') === value) {
                               return Promise.resolve();

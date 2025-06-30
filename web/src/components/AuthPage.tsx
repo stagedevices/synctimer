@@ -72,11 +72,13 @@ export function AuthPage() {
       return;
     }
     try {
+      const [first = '', last = ''] = (vals.name || '').split(/\s+/, 2);
       await createAccount(
         vals.email,
-        vals.password,
         vals.handle.toLowerCase(),
-        vals.name || ''
+        first,
+        last,
+        vals.password
       );
       navigate('/parse');
     } catch (e: any) {

@@ -52,7 +52,9 @@ export async function signIn(
 export async function signUp(
   email: string,
   handle: string,
-  fullName: string,
+  first: string,
+  last: string,
+
   password: string,
 ): Promise<User> {
   const h = handle.toLowerCase();
@@ -63,11 +65,14 @@ export async function signUp(
     throw new Error('Handle already taken');
   }
   const cred = await createUserWithEmailAndPassword(auth, email, password);
-  if (fullName) await updateProfile(cred.user, { displayName: fullName });
+  const displayName = `${first} ${last}`.trim();
+  if (displayName) await updateProfile(cred.user, { displayName });
   await setDoc(doc(db, 'users', cred.user.uid), {
     email,
     handle: h,
-    name: fullName || null,
+    first,
+    last,
+
     createdAt: serverTimestamp(),
   });
   return cred.user;
