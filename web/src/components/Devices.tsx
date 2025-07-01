@@ -35,7 +35,7 @@ interface Device {
   autoPushReceived: boolean;
 }
 
-export function Devices() {
+export function Devices({ linkToken }: { linkToken?: string }) {
   const navigate = useNavigate();
   const uid = auth.currentUser?.uid;
   const reduce = useReducedMotion() ?? false;
@@ -70,20 +70,25 @@ export function Devices() {
 
   useEffect(() => {
     if (!uid || !canvasRef.current) return;
-    const ts = new Date().toISOString();
     (async () => {
       try {
-        const enc = new TextEncoder();
-        const key = await crypto.subtle.importKey(
-          'raw',
-          enc.encode(SECRET),
-          { name: 'HMAC', hash: 'SHA-256' },
-          false,
-          ['sign'],
-        );
-        const sigBuf = await crypto.subtle.sign('HMAC', key, enc.encode(uid + ts));
-        const sig = btoa(String.fromCharCode(...new Uint8Array(sigBuf)));
-        const payload = JSON.stringify({ uid, ts, sig });
+        let payload: string;
+        if (linkToken) {
+          payload = JSON.stringify({ uid, token: linkToken });
+        } else {
+          const ts = new Date().toISOString();
+          const enc = new TextEncoder();
+          const key = await crypto.subtle.importKey(
+            'raw',
+            enc.encode(SECRET),
+            { name: 'HMAC', hash: 'SHA-256' },
+            false,
+            ['sign'],
+          );
+          const sigBuf = await crypto.subtle.sign('HMAC', key, enc.encode(uid + ts));
+          const sig = btoa(String.fromCharCode(...new Uint8Array(sigBuf)));
+          payload = JSON.stringify({ uid, ts, sig });
+        }
         const url =
           'https://bwipjs-api.metafloor.com/?bcid=pdf417&scale=3&padding=10&text=' +
           encodeURIComponent(payload);
@@ -102,7 +107,7 @@ export function Devices() {
         message.error('Failed to render barcode');
       }
     })();
-  }, [uid]);
+  }, [uid, linkToken]);
 
   const animate = (id: string, success: boolean) => {
     const el = document.getElementById('device-' + id);
