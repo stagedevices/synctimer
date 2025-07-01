@@ -1,13 +1,30 @@
-import { useState, useCallback, useEffect, type CSSProperties } from "react";
+import {
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  lazy,
+  Suspense,
+  type CSSProperties,
+} from "react";
 import { useDropzone } from "react-dropzone";
 import { parseUpload } from "../lib/api";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { materialLight } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { Card, Button, Row, Col, Input, Switch, message, Alert, Spin } from "antd";
-import { SunOutlined, MoonOutlined, CopyOutlined, DownloadOutlined } from "@ant-design/icons";
+import { Card, Row, Col, Input, Switch, message, Alert, Spin, Button } from "antd";
+import {
+  SunOutlined,
+  MoonOutlined,
+  CopyOutlined,
+  DownloadOutlined,
+  InboxOutlined,
+} from "@ant-design/icons";
 import { saveAs } from "file-saver";
 import { auth, db } from "../lib/firebase";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+
+// Lazy load the Monaco editor to keep the initial bundle small
+const MonacoEditor = lazy(() => import("@monaco-editor/react"));
 
 // Glassmorphic card style
 const glassStyle: CSSProperties = {
@@ -48,12 +65,20 @@ export function UploadValidate() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [filename, setFilename] = useState('out.yaml');
+  const blurTimer = useRef<number>();
+
+  const editorRef = useRef<any>(null);
+  const monacoRef = useRef<any>(null);
 
   const onDrop = useCallback((files: File[]) => {
     const file = files[0];
     setFilename(file.name.replace(/\.xml$/i, '.yaml'));
     const reader = new FileReader();
-    reader.onload = () => setXmlText(reader.result as string);
+    reader.onload = () => {
+      const text = reader.result as string;
+      setXmlText(text);
+      editorRef.current?.setValue(text);
+    };
     reader.readAsText(file);
   }, []);
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, accept: { "application/xml": [".xml"] } });
@@ -94,6 +119,60 @@ export function UploadValidate() {
       setLoading(false);
     }
   };
+
+  const validateXmlSyntax = useCallback((value: string) => {
+    if (!editorRef.current || !monacoRef.current) return;
+    const monaco = monacoRef.current;
+    const model = editorRef.current.getModel();
+    if (!model) return;
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(value, 'application/xml');
+      const errNode = doc.querySelector('parsererror');
+      if (errNode) {
+        monaco.editor.setModelMarkers(model, 'owner', [
+          {
+            startLineNumber: 1,
+            startColumn: 1,
+            endLineNumber: 1,
+            endColumn: 1,
+            message: errNode.textContent || 'Invalid XML',
+            severity: monaco.MarkerSeverity.Error,
+          },
+        ]);
+      } else {
+        monaco.editor.setModelMarkers(model, 'owner', []);
+      }
+    } catch (e: any) {
+      monaco.editor.setModelMarkers(model, 'owner', [
+        {
+          startLineNumber: 1,
+          startColumn: 1,
+          endLineNumber: 1,
+          endColumn: 1,
+          message: e.message,
+          severity: monaco.MarkerSeverity.Error,
+        },
+      ]);
+    }
+  }, []);
+
+  useEffect(() => {
+    validateXmlSyntax(xmlText);
+  }, [xmlText, validateXmlSyntax]);
+
+  const handleEditorMount = useCallback((editor: any, monaco: any) => {
+    editorRef.current = editor;
+    monacoRef.current = monaco;
+    editor.onDidBlurEditorWidget(() => {
+      editor.getAction('editor.action.formatDocument')?.run();
+      if (blurTimer.current) clearTimeout(blurTimer.current);
+      blurTimer.current = window.setTimeout(() => handleValidate(), 500);
+    });
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+      handleValidate();
+    });
+  }, [handleValidate]);
 
   const handleCopy = () => {
     if (yaml) {
@@ -171,44 +250,32 @@ export function UploadValidate() {
                 />
               )}
 
-              <div {...getRootProps()} style={{
-                border: '2px dashed #ccc',
-                padding: '1rem',
-                borderRadius: '1rem',
-                textAlign: 'center',
-                background: isDragActive ? '#e6f7ff' : 'transparent'
-              }}>
+              <div
+                {...getRootProps({ className: `drop-zone ${isDragActive ? 'active' : ''}` })}
+                style={{ marginBottom: '1rem' }}
+              >
                 <input {...getInputProps()} />
-                {isDragActive ? <p>Drop XML here…</p> : <p>Drag & drop an XML file or click to select</p>}
+                <InboxOutlined className="drop-zone-icon" />
+                <p style={{ margin: 0 }}>
+                  {isDragActive ? 'Release to upload' : 'Drag XML here or click'}
+                </p>
               </div>
 
-              <Input.TextArea
-                value={xmlText}
-                onChange={e => setXmlText(e.target.value)}
-                rows={10}
-                style={{ marginTop: '1rem', fontFamily: 'monospace', fontSize: '1.5rem' }}
-                placeholder="Or paste/edit XML here"
-              />
-
-              <Button
-                type="primary"
-                size="large"
-                htmlType="button"
-                style={{
-                  backgroundColor: '#70C73C',
-                  borderRadius: '1rem',
-                  fontSize: '1.5rem',
-                  marginTop: '1rem',
-                  transition: 'transform 0.25s'
-                }}
-                loading={loading}
-                onClick={handleValidate}
-                onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.03)')}
-                onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-                disabled={!xmlText.trim()}
-              >
-                Validate XML
-              </Button>
+              <Suspense fallback={<Spin />}>
+                <MonacoEditor
+                  height="40vh"
+                  language="xml"
+                  value={xmlText}
+                  onChange={(val) => {
+                    const text = val ?? '';
+                    setXmlText(text);
+                    validateXmlSyntax(text);
+                  }}
+                  onMount={handleEditorMount}
+                  theme={dark ? 'vs-dark' : 'light'}
+                  options={{ minimap: { enabled: false }, automaticLayout: true }}
+                />
+              </Suspense>
             </Card>
           </Spin>
         </Col>
