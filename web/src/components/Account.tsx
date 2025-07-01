@@ -448,6 +448,16 @@ export function Account() {
           setValues((v) => ({ ...v, email: original.email }));
           return;
         }
+        const existing = await getDocs(
+          query(collection(db, 'users'), where('email', '==', value))
+        );
+        if (existing.docs.find(d => d.id !== uid)) {
+          message.error('Email already in use');
+          animate('email', 'error');
+          setValues(v => ({ ...v, email: original.email }));
+          return;
+        }
+
         await updateEmail(auth.currentUser!, value);
         await updateDoc(profileRef, { email: value } as DocumentData);
       } else {

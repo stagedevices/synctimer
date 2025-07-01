@@ -24,6 +24,8 @@ export interface FriendsState {
   outgoing: UserInfo[];
   loading: boolean;
   refetch: () => Promise<void>;
+  removeLocal: (uid: string) => void;
+
 }
 
 export function useFriends(): FriendsState {
@@ -100,7 +102,12 @@ export function useFriends(): FriendsState {
 
   const refetch = fetchContacts;
 
-  return { contacts, incoming, outgoing, loading, refetch };
+  const removeLocal = (uidToRemove: string) => {
+    setContacts((c) => c.filter((f) => f.id !== uidToRemove));
+  };
+
+  return { contacts, incoming, outgoing, loading, refetch, removeLocal };
+
 }
 
 export function useIncomingCount(): number {
