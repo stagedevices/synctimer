@@ -15,6 +15,7 @@ import {
   Progress,
   Tag,
 } from 'antd';
+import type { InputRef } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '../lib/firebase';
@@ -137,7 +138,7 @@ export function Account() {
   // local email value and saving state
   const [email, setEmail] = useState('');
   const [isEmailSaving, setIsEmailSaving] = useState(false);
-  const emailInputRef = useRef<HTMLInputElement | null>(null);
+  const emailInputRef = useRef<InputRef>(null);
 
   const [values, setValues] = useState({
     displayName: '',
@@ -542,7 +543,7 @@ export function Account() {
       // 1) Check if already registered
       const methods = await fetchSignInMethodsForEmail(auth, newEmail);
       if (methods.length > 0) {
-        shake(emailInputRef.current);
+        shake(emailInputRef.current?.input || null);
         toast.error('Email already in use.');
         // revert input
         setEmail(currentEmail || '');
@@ -558,7 +559,7 @@ export function Account() {
         toast.success('Email updated.');
       }
     } catch (err: unknown) {
-      shake(emailInputRef.current);
+      shake(emailInputRef.current?.input || null);
       const msg = err instanceof Error ? err.message : String(err);
       toast.error(msg || 'Failed to update email.');
       setEmail(currentEmail || '');
