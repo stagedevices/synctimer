@@ -25,6 +25,7 @@ export interface FriendsState {
   loading: boolean;
   refetch: () => Promise<void>;
   removeLocal: (uid: string) => void;
+
 }
 
 export function useFriends(): FriendsState {
@@ -106,6 +107,7 @@ export function useFriends(): FriendsState {
   };
 
   return { contacts, incoming, outgoing, loading, refetch, removeLocal };
+
 }
 
 export function useIncomingCount(): number {
