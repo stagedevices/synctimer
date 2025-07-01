@@ -164,18 +164,21 @@ export function UploadValidate() {
     validateXmlSyntax(xmlText);
   }, [xmlText, validateXmlSyntax]);
 
-  const handleEditorMount: OnMount = useCallback((editor, monaco) => {
-    editorRef.current = editor;
-    monacoRef.current = monaco;
-    editor.onDidBlurEditorWidget(() => {
-      editor.getAction('editor.action.formatDocument')?.run();
-      if (blurTimer.current) clearTimeout(blurTimer.current);
-      blurTimer.current = window.setTimeout(() => handleValidate(), 500);
-    });
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
-      handleValidate();
-    });
-  }, [handleValidate]);
+  const handleEditorMount = useCallback<OnMount>(
+    (editor: MonacoEditorAPI.IStandaloneCodeEditor, monaco: Monaco) => {
+      editorRef.current = editor;
+      monacoRef.current = monaco;
+      editor.onDidBlurEditorWidget(() => {
+        editor.getAction('editor.action.formatDocument')?.run();
+        if (blurTimer.current) clearTimeout(blurTimer.current);
+        blurTimer.current = window.setTimeout(() => handleValidate(), 500);
+      });
+      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+        handleValidate();
+      });
+    },
+    [handleValidate]
+  );
 
   const handleCopy = () => {
     if (yaml) {
