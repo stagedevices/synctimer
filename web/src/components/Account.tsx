@@ -381,6 +381,7 @@ export function Account() {
       const taken = existing.docs.find(d => d.id !== uid);
       if (taken) {
         return 'This username is already taken.';
+
       }
 
     } else if (field === 'email') {
@@ -425,6 +426,7 @@ export function Account() {
           message.error('Username already taken');
           animate('username', 'error');
           setValues(v => ({ ...v, username: original.username }));
+
           setUsername(original.username);
           return;
         }
@@ -455,6 +457,7 @@ export function Account() {
           setValues(v => ({ ...v, email: original.email }));
           return;
         }
+
         await updateEmail(auth.currentUser!, value);
         await updateDoc(profileRef, { email: value } as DocumentData);
       } else {
