@@ -27,6 +27,7 @@ a:hover {
 
 body {
   margin: 0;
+
   min-width: 320px;
   min-height: 100vh;
   display: flex;
@@ -233,6 +234,7 @@ button:focus-visible {
   backdrop-filter: blur(12px);
   box-shadow: 2px 0 12px rgba(0, 0, 0, 0.15);
   border-right: 1px solid rgba(255, 255, 255, 0.6);
+
   padding: 1rem;
   display: flex;
   flex-direction: column;
@@ -285,9 +287,11 @@ button:focus-visible {
 
 .main-content {
   flex: 1;
+
   min-height: 100vh;
   margin-left: var(--sidebar-width);
   padding: 1rem;
   position: relative;
+
 }
 
