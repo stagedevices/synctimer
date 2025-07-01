@@ -403,10 +403,13 @@ export function Account() {
   const saveField = async (field: keyof typeof values) => {
     if (!uid || !profileRef) return;
     const value = values[field];
+    setSavingField(field);
     const err = await validateField(field, value);
     setErrors((e) => ({ ...e, [field]: err || undefined }));
-    if (err || value === original[field]) return;
-    setSavingField(field);
+    if (err || value === original[field]) {
+      setSavingField(null);
+      return;
+    }
     try {
       if (field === 'username') {
         const lower = value.toLowerCase();
@@ -441,25 +444,61 @@ export function Account() {
           await deleteDoc(doc(db, 'usernames', oldLower));
         }
       } else if (field === 'email') {
-        const methods = await fetchSignInMethodsForEmail(auth, value);
-        if (methods.length > 0 && value !== auth.currentUser?.email) {
-          message.error('Email already in use');
-          animate('email', 'error');
-          setValues((v) => ({ ...v, email: original.email }));
-          return;
-        }
-        const existing = await getDocs(
-          query(collection(db, 'users'), where('email', '==', value))
-        );
-        if (existing.docs.find(d => d.id !== uid)) {
-          message.error('Email already in use');
+        // New email entered, trim whitespace
+        const newEmail = value.trim();
+
+        // Check if the email already exists on another account
+        let methods: string[] = [];
+        try {
+          methods = await fetchSignInMethodsForEmail(auth, newEmail);
+        } catch (e) {
+          // Fetch failed; show error and revert
+          const msg = (e as FirebaseError).message ?? String(e);
+          message.error(msg);
           animate('email', 'error');
           setValues(v => ({ ...v, email: original.email }));
+          setSavingField(null);
           return;
         }
 
-        await updateEmail(auth.currentUser!, value);
-        await updateDoc(profileRef, { email: value } as DocumentData);
+        // If unchanged, nothing to do
+        if (
+          newEmail.toLowerCase() === (auth.currentUser?.email ?? '').toLowerCase()
+        ) {
+          setSavingField(null);
+          return;
+        }
+
+        // Existing account found with this email
+        if (methods.length > 0) {
+          animate('email', 'error');
+          message.error('Email already in use.');
+          setValues(v => ({ ...v, email: auth.currentUser?.email || '' }));
+          setSavingField(null);
+          return;
+        }
+
+        try {
+          // Update Firebase auth
+          await updateEmail(auth.currentUser!, newEmail);
+          // Persist in Firestore profile
+          await setDoc(
+            doc(db, 'users', uid),
+            { profile: { email: newEmail } },
+            { merge: true },
+          );
+          message.success('Email updated.');
+          animate('email', 'success');
+          setOriginal(o => ({ ...o, email: newEmail }));
+        } catch (e) {
+          // Revert on failure
+          const msg = (e as FirebaseError).message ?? String(e);
+          message.error(msg);
+          animate('email', 'error');
+          setValues(v => ({ ...v, email: original.email }));
+        }
+        setSavingField(null);
+        return;
       } else {
         const data: Record<string, unknown> = { [field]: value };
         await updateDoc(profileRef, data as DocumentData);
@@ -795,8 +834,15 @@ export function Account() {
                 <Input
                   style={{ flex: 1 }}
                   value={values.email}
-                  onChange={(e) => setValues({ ...values, email: e.target.value })}
+                  onChange={(e) =>
+                    setValues({ ...values, email: e.target.value })
+                  }
                   disabled={savingField === 'email'}
+                  suffix={
+                    savingField === 'email' ? (
+                      <LoadingSpinner size="small" />
+                    ) : undefined
+                  }
                   onBlur={() => saveField('email')}
                 />
                 <Button
