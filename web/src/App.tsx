@@ -10,6 +10,7 @@ import { Files } from './components/Files';
 import { Contacts } from './components/Contacts';
 import { LinkDeviceModal } from './components/LinkDeviceModal';
 import { Groups } from './components/Groups';
+import { GroupDetail } from './components/GroupDetail';
 import { Explore } from './components/Explore';
 import { TagDetail } from './components/TagDetail';
 
@@ -62,6 +63,14 @@ export function App() {
             element={
               <ProtectedRoute>
                 <Groups />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/groups/:groupId"
+            element={
+              <ProtectedRoute>
+                <GroupDetail />
               </ProtectedRoute>
             }
           />
