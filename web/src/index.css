@@ -219,6 +219,8 @@ button:focus-visible {
   flex-direction: column;
   transition: width 0.3s var(--ease), transform 0.3s var(--ease);
   z-index: 100;
+  border-top-right-radius: 1rem;
+  border-bottom-right-radius: 1rem;
 }
 
 .sidebar.collapsed {
