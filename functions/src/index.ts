@@ -1,4 +1,4 @@
-import * as functions from "firebase-functions";
+import * as functions from "firebase-functions/v1";
 import * as admin from "firebase-admin";
 import { fetch } from "undici";
 import cors from "cors";
@@ -131,4 +131,50 @@ export const getLinkToken = functions.https.onRequest((req, res) => {
       res.status(500).send(msg);
     }
   });
+});
+
+// Firestore trigger: update memberCount for tags
+export const onTagMemberWrite = functions.firestore
+  .document("tags/{tagId}/members/{uid}")
+  .onWrite(async (change: functions.Change<admin.firestore.DocumentData>, context: functions.EventContext) => {
+    const tagId = context.params.tagId;
+    const delta = change.after.exists ? (change.before.exists ? 0 : 1) : -1;
+    if (delta === 0) return null;
+    await db.doc(`tags/${tagId}`).update({
+      memberCount: FieldValue.increment(delta),
+    });
+    return null;
+  });
+
+// Firestore trigger: update memberCount for groups
+export const onGroupMemberWrite = functions.firestore
+  .document("groups/{groupId}/members/{uid}")
+  .onWrite(async (change: functions.Change<admin.firestore.DocumentData>, context: functions.EventContext) => {
+    const groupId = context.params.groupId;
+    const delta = change.after.exists ? (change.before.exists ? 0 : 1) : -1;
+    if (delta === 0) return null;
+    await db.doc(`groups/${groupId}`).update({
+      memberCount: FieldValue.increment(delta),
+    });
+    return null;
+  });
+
+// HTTP function to verify group via email token
+export const verifyGroupEmail = functions.https.onRequest(async (req, res) => {
+  const { groupId } = req.query as { groupId?: string };
+  if (!groupId) {
+    res.status(400).send("Missing groupId");
+    return;
+  }
+  try {
+    await db.doc(`groups/${groupId}`).update({
+      status: "verified",
+      verification: { verifiedAt: FieldValue.serverTimestamp() },
+    });
+    res.send("Group verified");
+  } catch (e: any) {
+    console.error("verifyGroupEmail error:", e);
+    const msg = e instanceof Error ? e.message : String(e);
+    res.status(500).send(msg);
+  }
 });
