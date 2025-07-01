@@ -334,6 +334,8 @@ button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
+/* Restyled Link Phone trigger button */
+
 .link-device-btn {
   background: #000;
   color: #fff;
@@ -346,6 +348,8 @@ button:focus-visible {
   background: #000;
   box-shadow: 0 0 0 2px #000;
 }
+
+/* Sign Out sidebar button styles */
 
 .signout-btn {
   position: absolute;
@@ -364,6 +368,15 @@ body[data-theme='dark'] .signout-btn {
   background: rgba(0, 0, 0, 0.4);
   border-color: rgba(255, 255, 255, 0.2);
   color: #fff;
+}
+
+/* Ensure PDF417 barcode fits within modal */
+.barcode-wrapper {
+  overflow-x: auto;
+  text-align: center;
+}
+.barcode-wrapper canvas {
+  max-width: 100%;
 
 }
 

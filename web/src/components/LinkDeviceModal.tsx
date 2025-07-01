@@ -41,6 +41,7 @@ export function LinkDeviceModal() {
   return (
     <>
       <Tooltip title="Link Device">
+        {/* Restyled Link Phone trigger button */}
         <Button
           className="link-device-btn"
           aria-label="Link Device"
@@ -79,6 +80,8 @@ export function LinkDeviceModal() {
         transitionName="fade-scale"
         maskTransitionName="fade"
       >
+        {/* Wrap modal content to prevent overflow */}
+
         <div style={{ maxHeight: '70vh', overflowY: 'auto', padding: '1rem' }}>
           {error && (
             <Alert
