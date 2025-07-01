@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { useAuthState } from 'react-firebase-hooks/auth';
 import { Button, Modal, Tooltip, message, Alert } from 'antd';
 import { MobileOutlined, CloseOutlined } from '@ant-design/icons';
 import { auth } from '../lib/firebase';
@@ -7,6 +8,7 @@ import Devices from './Devices';
 import { useLocation } from 'react-router-dom';
 
 export function LinkDeviceModal() {
+  const [user] = useAuthState(auth);
   const [open, setOpen] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -16,8 +18,8 @@ export function LinkDeviceModal() {
     setOpen(false);
   }, [location.pathname]);
 
-  const fetchToken = async () => {
-    const uid = auth.currentUser?.uid;
+  const fetchToken = useCallback(async () => {
+    const uid = user?.uid;
     if (!uid) return;
     try {
       const t = await getLinkToken(uid);
@@ -28,29 +30,40 @@ export function LinkDeviceModal() {
       setError(msg);
       message.error(msg);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
-    if (open && !token) {
+    if (open && !token && user) {
       fetchToken();
     }
-  }, [open, token]);
+  }, [open, token, user, fetchToken]);
 
-  if (!auth.currentUser) return null;
+  if (!user) return null;
 
   return (
     <>
       <Tooltip title="Link Device">
+        {/* Restyled Link Phone trigger button */}
         <Button
           className="link-device-btn"
           aria-label="Link Device"
-
-          type="primary"
-          shape="circle"
+          type="default"
           icon={<MobileOutlined />}
           onClick={() => setOpen(true)}
-          style={{ position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 1000 }}
-        />
+          style={{
+            position: 'fixed',
+            bottom: '2rem',
+            right: '2rem',
+            zIndex: 1000,
+            backgroundColor: '#000',
+            color: '#fff',
+            fontWeight: 600,
+            padding: '0.75rem 1.5rem',
+            borderColor: '#000',
+          }}
+        >
+          Link Phone
+        </Button>
       </Tooltip>
       <Modal
         className="glass-modal"
@@ -69,16 +82,19 @@ export function LinkDeviceModal() {
         transitionName="fade-scale"
         maskTransitionName="fade"
       >
-        {error && (
-          <Alert
-            type="error"
-            message={error}
-            action={<Button size="small" onClick={fetchToken}>Retry</Button>}
-            style={{ marginBottom: 8 }}
-          />
-        )}
-        <div id="link-device-desc">
-          <Devices linkToken={token ?? undefined} />
+        {/* Wrap modal content to prevent overflow */}
+        <div style={{ maxHeight: '70vh', overflowY: 'auto', padding: '1rem' }}>
+          {error && (
+            <Alert
+              type="error"
+              message={error}
+              action={<Button size="small" onClick={fetchToken}>Retry</Button>}
+              style={{ marginBottom: 8 }}
+            />
+          )}
+          <div id="link-device-desc">
+            <Devices linkToken={token ?? undefined} />
+          </div>
         </div>
       </Modal>
     </>

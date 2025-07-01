@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { Button, Drawer, Grid } from 'antd';
+import { signOut } from 'firebase/auth';
 import {
   MenuOutlined,
   MenuFoldOutlined,
@@ -11,11 +12,14 @@ import {
   TeamOutlined,
   ContactsOutlined,
   TagOutlined,
+  LogoutOutlined,
 } from '@ant-design/icons';
+import { auth } from '../lib/firebase';
 
 export function Sidebar() {
   const screens = Grid.useBreakpoint();
   const isMobile = !screens.md;
+  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem('sidebarCollapsed') === 'true'
   );
@@ -56,6 +60,18 @@ export function Sidebar() {
           </NavLink>
         ))}
       </nav>
+      {/* Sign Out button pinned to bottom */}
+      <Button
+        className="sidebar-link signout-btn"
+        type="text"
+        icon={<LogoutOutlined />}
+        onClick={async () => {
+          await signOut(auth);
+          navigate('/account');
+        }}
+      >
+        <span className="label">Sign Out</span>
+      </Button>
     </div>
   );
 
