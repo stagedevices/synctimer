@@ -557,9 +557,10 @@ export function Account() {
         );
         toast.success('Email updated.');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       shake(emailInputRef.current);
-      toast.error(err.message || 'Failed to update email.');
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(msg || 'Failed to update email.');
       setEmail(currentEmail || '');
     } finally {
       setIsEmailSaving(false);
