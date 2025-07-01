@@ -335,6 +335,7 @@ button:focus-visible {
 }
 
 /* Restyled Link Phone trigger button */
+
 .link-device-btn {
   background: #000;
   color: #fff;
@@ -349,6 +350,7 @@ button:focus-visible {
 }
 
 /* Sign Out sidebar button styles */
+
 .signout-btn {
   position: absolute;
   bottom: 1rem;
@@ -375,6 +377,7 @@ body[data-theme='dark'] .signout-btn {
 }
 .barcode-wrapper canvas {
   max-width: 100%;
+
 }
 
 

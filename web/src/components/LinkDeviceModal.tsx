@@ -83,6 +83,7 @@ export function LinkDeviceModal() {
         maskTransitionName="fade"
       >
         {/* Wrap modal content to prevent overflow */}
+
         <div style={{ maxHeight: '70vh', overflowY: 'auto', padding: '1rem' }}>
           {error && (
             <Alert
