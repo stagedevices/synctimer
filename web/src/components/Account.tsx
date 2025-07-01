@@ -22,6 +22,7 @@ import {
   updateProfile,
   updateEmail,
   updatePassword,
+  fetchSignInMethodsForEmail,
   EmailAuthProvider,
   reauthenticateWithCredential,
   deleteUser,
@@ -369,20 +370,17 @@ export function Account() {
         return '3-32 letters, numbers or _';
 
       const lower = value.toLowerCase();
-      const userCol = collection(db, 'users');
-
-      // potential fields where username might live
-      const checks = [
-        query(userCol, where('usernameLower', '==', lower)),
-        query(userCol, where('profile.usernameLower', '==', lower)),
-        query(userCol, where('username', '==', value)),
-        query(userCol, where('profile.username', '==', value)),
-      ];
-
-      for (const q of checks) {
-        const snap = await getDocs(q);
-        const taken = snap.docs.find((d) => d.id !== uid);
-        if (taken) return 'This username is already taken.';
+      const snap = await getDoc(doc(db, 'usernames', lower));
+      if (snap.exists() && snap.data()?.uid !== uid) {
+        return 'This username is already taken.';
+      }
+      // fallback to searching users collection for older accounts
+      const existing = await getDocs(
+        query(collection(db, 'users'), where('handle', '==', lower)),
+      );
+      const taken = existing.docs.find(d => d.id !== uid);
+      if (taken) {
+        return 'This username is already taken.';
       }
 
     } else if (field === 'email') {
@@ -409,12 +407,62 @@ export function Account() {
     if (err || value === original[field]) return;
     setSavingField(field);
     try {
-      const data: Record<string, unknown> = { [field]: value };
-      if (field === 'username') data.usernameLower = value.toLowerCase();
-      await updateDoc(profileRef, data as DocumentData);
-      if (field === 'displayName')
-        await updateProfile(auth.currentUser!, { displayName: value });
-      if (field === 'email') await updateEmail(auth.currentUser!, value);
+      if (field === 'username') {
+        const lower = value.toLowerCase();
+        const ref = doc(db, 'usernames', lower);
+        const snap = await getDoc(ref);
+        if (snap.exists() && snap.data()?.uid !== uid) {
+          message.error('Username already taken');
+          animate('username', 'error');
+          setValues(v => ({ ...v, username: original.username }));
+          setUsername(original.username);
+          return;
+        }
+        const existing = await getDocs(
+          query(collection(db, 'users'), where('handle', '==', lower)),
+        );
+        if (existing.docs.find(d => d.id !== uid)) {
+          message.error('Username already taken');
+          animate('username', 'error');
+          setValues(v => ({ ...v, username: original.username }));
+          setUsername(original.username);
+          return;
+        }
+        const batchData: Record<string, unknown> = {
+          username: value,
+          usernameLower: lower,
+        };
+        await updateDoc(profileRef, batchData as DocumentData);
+        await setDoc(ref, { uid });
+        const oldLower = original.username.toLowerCase();
+        if (oldLower && oldLower !== lower) {
+          await deleteDoc(doc(db, 'usernames', oldLower));
+        }
+      } else if (field === 'email') {
+        const methods = await fetchSignInMethodsForEmail(auth, value);
+        if (methods.length > 0 && value !== auth.currentUser?.email) {
+          message.error('Email already in use');
+          animate('email', 'error');
+          setValues((v) => ({ ...v, email: original.email }));
+          return;
+        }
+        const existing = await getDocs(
+          query(collection(db, 'users'), where('email', '==', value))
+        );
+        if (existing.docs.find(d => d.id !== uid)) {
+          message.error('Email already in use');
+          animate('email', 'error');
+          setValues(v => ({ ...v, email: original.email }));
+          return;
+        }
+        await updateEmail(auth.currentUser!, value);
+        await updateDoc(profileRef, { email: value } as DocumentData);
+      } else {
+        const data: Record<string, unknown> = { [field]: value };
+        await updateDoc(profileRef, data as DocumentData);
+        if (field === 'displayName')
+          await updateProfile(auth.currentUser!, { displayName: value });
+      }
       message.success(`${field} updated`);
       animate(field, 'success');
       setOriginal((o) => ({ ...o, [field]: value }));
@@ -718,9 +766,20 @@ export function Account() {
                     setUsername(e.target.value);
                     setValues({ ...values, username: e.target.value });
                   }}
+                  disabled={savingField === 'username'}
                   onBlur={() => saveField('username')}
                 />
-                <Button size="small" type="primary" onClick={() => saveField('username')} disabled={values.username === original.username || !!errors.username} loading={savingField === 'username'}>
+                <Button
+                  size="small"
+                  type="primary"
+                  onClick={() => saveField('username')}
+                  disabled={
+                    savingField === 'username' ||
+                    values.username === original.username ||
+                    !!errors.username
+                  }
+                  loading={savingField === 'username'}
+                >
                   Save
                 </Button>
               </div>
@@ -734,9 +793,20 @@ export function Account() {
                   style={{ flex: 1 }}
                   value={values.email}
                   onChange={(e) => setValues({ ...values, email: e.target.value })}
+                  disabled={savingField === 'email'}
                   onBlur={() => saveField('email')}
                 />
-                <Button size="small" type="primary" onClick={() => saveField('email')} disabled={values.email === original.email || !!errors.email} loading={savingField === 'email'}>
+                <Button
+                  size="small"
+                  type="primary"
+                  onClick={() => saveField('email')}
+                  disabled={
+                    savingField === 'email' ||
+                    values.email === original.email ||
+                    !!errors.email
+                  }
+                  loading={savingField === 'email'}
+                >
                   Save
                 </Button>
               </div>
