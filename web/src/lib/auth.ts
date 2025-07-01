@@ -14,6 +14,7 @@ import {
   query,
   where,
   getDocs,
+  getDoc,
   doc,
   setDoc,
   serverTimestamp,
@@ -58,6 +59,13 @@ export async function signUp(
   password: string,
 ): Promise<User> {
   const h = handle.toLowerCase();
+  // Check the usernames mapping first for existing entries
+  const usernameRef = doc(db, 'usernames', h);
+  const usernameSnap = await getDoc(usernameRef);
+  if (usernameSnap.exists()) {
+    throw new Error('Handle already taken');
+  }
+  // Fallback to searching users collection for legacy entries
   const existing = await getDocs(
     query(collection(db, 'users'), where('handle', '==', h)),
   );
@@ -75,6 +83,8 @@ export async function signUp(
 
     createdAt: serverTimestamp(),
   });
+  // record the handle in the usernames map for quick lookup
+  await setDoc(usernameRef, { uid: cred.user.uid });
   return cred.user;
 }
 

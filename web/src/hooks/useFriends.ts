@@ -5,6 +5,7 @@ import {
   doc,
   onSnapshot,
   getDoc,
+  getDocs,
   type DocumentData,
 } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
@@ -22,6 +23,7 @@ export interface FriendsState {
   incoming: UserInfo[];
   outgoing: UserInfo[];
   loading: boolean;
+  refetch: () => Promise<void>;
 }
 
 export function useFriends(): FriendsState {
@@ -32,6 +34,22 @@ export function useFriends(): FriendsState {
   const [incoming, setIncoming] = useState<UserInfo[]>([]);
   const [outgoing, setOutgoing] = useState<UserInfo[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const fetchContacts = async () => {
+    if (!uid) return;
+    setLoading(true);
+    const snap = await getDocs(collection(db, 'users', uid, 'contacts'));
+    const arr: UserInfo[] = [];
+    for (const d of snap.docs) {
+      const u = await getDoc(doc(db, 'users', d.id));
+      if (u.exists()) {
+        const data = u.data() as DocumentData;
+        arr.push({ id: d.id, ...data } as UserInfo);
+      }
+    }
+    setContacts(arr);
+    setLoading(false);
+  };
 
   useEffect(() => {
     if (!uid) return;
@@ -80,7 +98,9 @@ export function useFriends(): FriendsState {
     };
   }, [uid]);
 
-  return { contacts, incoming, outgoing, loading };
+  const refetch = fetchContacts;
+
+  return { contacts, incoming, outgoing, loading, refetch };
 }
 
 export function useIncomingCount(): number {
