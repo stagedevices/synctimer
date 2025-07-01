@@ -8,7 +8,7 @@ import {
 import { UploadValidate } from './components/UploadValidate';
 import { Files } from './components/Files';
 import { Contacts } from './components/Contacts';
-import { Devices } from './components/Devices';
+import { LinkDeviceModal } from './components/LinkDeviceModal';
 import { Groups } from './components/Groups';
 
 import { Account as AccountProfile } from './components/Account';
@@ -70,14 +70,6 @@ export function App() {
             }
           />
           <Route
-            path="/devices"
-            element={
-              <ProtectedRoute>
-                <Devices />
-              </ProtectedRoute>
-            }
-          />
-          <Route
             path="*"
             element={
               <ProtectedRoute>
@@ -88,6 +80,7 @@ export function App() {
         </Routes>
         </PageAnimator>
       </MainContent>
+      <LinkDeviceModal />
     </BrowserRouter>
   );
 }

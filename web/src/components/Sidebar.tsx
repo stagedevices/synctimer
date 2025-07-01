@@ -10,7 +10,6 @@ import {
   FolderOpenOutlined,
   TeamOutlined,
   ContactsOutlined,
-  MobileOutlined,
 } from '@ant-design/icons';
 
 export function Sidebar() {
@@ -37,7 +36,6 @@ export function Sidebar() {
     ['/files', 'Files', <FolderOpenOutlined />],
     ['/groups', 'Groups', <TeamOutlined />],
     ['/contacts', 'Contacts', <ContactsOutlined />],
-    ['/devices', 'Devices', <MobileOutlined />],
   ] as const;
 
   const content = (
