@@ -446,6 +446,7 @@ export function Account() {
       } else if (field === 'email') {
         // new email handling
         const newEmail = value.trim();
+
         if (newEmail === auth.currentUser?.email) {
           setSavingField(null);
           return;
