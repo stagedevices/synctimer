@@ -130,14 +130,7 @@ export function AccountLanding() {
         <Col xs={24} md={12} className="landing-side">
           <Card
             className="glass-card landing-card"
-            style={{
-              width: '100%',
-              height: '100%',
-              padding: '2rem',
-              borderRadius: '1.5rem',
-              backdropFilter: 'blur(8px)',
-              background: 'rgba(255,255,255,0.6)',
-            }}
+            style={{ height: '100%' }}
           >
 
             <Row justify="space-between" align="middle" style={{ marginBottom: '1rem' }}>

@@ -9,12 +9,12 @@ import { saveAs } from "file-saver";
 import { auth, db } from "../lib/firebase";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 
-// Glassmorphic card style
+// Glassmorphic card style using global tokens
 const glassStyle: CSSProperties = {
-  background: 'rgba(255,255,255,0.6)',
-  backdropFilter: 'blur(8px)',
-  borderRadius: '1.5rem',
-  boxShadow: '0 8px 32px rgba(0,0,0,0.125)',
+  background: 'var(--glass-bg-heavy)',
+  backdropFilter: 'blur(var(--glass-blur-heavy))',
+  borderRadius: 'var(--glass-radius)',
+  boxShadow: 'var(--glass-shadow-heavy)',
   height: '100%',
 };
 

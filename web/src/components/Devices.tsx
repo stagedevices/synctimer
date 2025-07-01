@@ -169,7 +169,7 @@ export function Devices({ linkToken }: { linkToken?: string }) {
     }
   };
 
-  const glassStyle = { borderRadius: '1.5rem' } as const;
+  const glassStyle = { borderRadius: 'var(--glass-radius)' } as const;
 
   return (
     <Card title="Linked Devices" className="glass-card" style={{ margin: '2rem', ...glassStyle }}>

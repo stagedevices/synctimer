@@ -67,7 +67,7 @@ export function Home() {
   };
 
   return (
-    <Card title="Sign In" className="glass-card" style={{ margin: '2rem', borderRadius: '1.5rem' }}>
+    <Card title="Sign In" className="glass-card" style={{ margin: '2rem', borderRadius: 'var(--glass-radius)' }}>
       <Row gutter={[16,16]}>
         <Col span={24}>
           <Button

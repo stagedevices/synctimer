@@ -6,6 +6,12 @@
   --accent: #70C73C;
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
 
+  /* Global glass tokens */
+  --glass-bg-heavy: rgba(255, 255, 255, 0.4);
+  --glass-blur-heavy: 16px;
+  --glass-shadow-heavy: 0 8px 32px rgba(0, 0, 0, 0.2);
+  --glass-radius: 1.5rem;
+
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
   background-color: #242424;
@@ -157,10 +163,10 @@ button:focus-visible {
 
 /* Glass card base */
 .glass-card {
-  background: rgba(255, 255, 255, 0.4);
-  backdrop-filter: blur(12px);
-  border-radius: 1.5rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  background: var(--glass-bg-heavy);
+  backdrop-filter: blur(var(--glass-blur-heavy));
+  border-radius: var(--glass-radius);
+  box-shadow: var(--glass-shadow-heavy);
   transition: all 250ms;
 }
 
@@ -323,10 +329,10 @@ button:focus-visible {
 }
 
 .glass-modal .ant-modal-content {
-  background: rgba(255, 255, 255, 0.4);
-  backdrop-filter: blur(12px);
-  border-radius: 1.5rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  background: var(--glass-bg-heavy);
+  backdrop-filter: blur(var(--glass-blur-heavy));
+  border-radius: var(--glass-radius);
+  box-shadow: var(--glass-shadow-heavy);
 }
 
 .ant-modal-close:focus-visible,

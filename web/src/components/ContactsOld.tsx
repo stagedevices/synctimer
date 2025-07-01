@@ -65,7 +65,7 @@ export function Contacts() {
   };
 
   const glassStyle = {
-    borderRadius: '1.5rem',
+    borderRadius: 'var(--glass-radius)',
   } as const;
 
   return (

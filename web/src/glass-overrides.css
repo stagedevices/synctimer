@@ -1,0 +1,36 @@
+/* Cards and modals */
+.ant-card,
+.ant-modal-content {
+  background: var(--glass-bg-heavy) !important;
+  backdrop-filter: blur(var(--glass-blur-heavy)) !important;
+  box-shadow: var(--glass-shadow-heavy) !important;
+  border-radius: var(--glass-radius) !important;
+}
+
+/* Inputs, textareas, selects */
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-textarea,
+.ant-select-selector {
+  background: var(--glass-bg-heavy) !important;
+  backdrop-filter: blur(var(--glass-blur-heavy)) !important;
+  box-shadow: inset var(--glass-shadow-heavy) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  border-radius: var(--glass-radius) !important;
+}
+
+/* Primary & default buttons */
+.ant-btn-primary,
+.ant-btn-default {
+  background: var(--glass-bg-heavy) !important;
+  backdrop-filter: blur(var(--glass-blur-heavy)) !important;
+  box-shadow: var(--glass-shadow-heavy) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  border-radius: var(--glass-radius) !important;
+  color: #282828 !important;
+}
+/* On hover/active keep same glass, maybe intensify shadow */
+.ant-btn-primary:hover,
+.ant-btn-default:hover {
+  box-shadow: 0 12px 48px rgba(0,0,0,0.25) !important;
+}
