@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Button, Drawer, Grid } from 'antd';
 import { signOut } from 'firebase/auth';
+
 import {
   MenuOutlined,
   MenuFoldOutlined,
@@ -65,12 +66,14 @@ export function Sidebar() {
         className="sidebar-link signout-btn"
         type="text"
         icon={<LogoutOutlined />}
+
         onClick={async () => {
           await signOut(auth);
           navigate('/account');
         }}
       >
         <span className="label">Sign Out</span>
+
       </Button>
     </div>
   );
