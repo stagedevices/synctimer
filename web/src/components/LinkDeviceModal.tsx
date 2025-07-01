@@ -44,13 +44,23 @@ export function LinkDeviceModal() {
         <Button
           className="link-device-btn"
           aria-label="Link Device"
-
-          type="primary"
-          shape="circle"
+          type="default"
           icon={<MobileOutlined />}
           onClick={() => setOpen(true)}
-          style={{ position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 1000 }}
-        />
+          style={{
+            position: 'fixed',
+            bottom: '2rem',
+            right: '2rem',
+            zIndex: 1000,
+            backgroundColor: '#000',
+            color: '#fff',
+            fontWeight: 600,
+            padding: '0.75rem 1.5rem',
+            borderColor: '#000',
+          }}
+        >
+          Link Phone
+        </Button>
       </Tooltip>
       <Modal
         className="glass-modal"
@@ -69,16 +79,18 @@ export function LinkDeviceModal() {
         transitionName="fade-scale"
         maskTransitionName="fade"
       >
-        {error && (
-          <Alert
-            type="error"
-            message={error}
-            action={<Button size="small" onClick={fetchToken}>Retry</Button>}
-            style={{ marginBottom: 8 }}
-          />
-        )}
-        <div id="link-device-desc">
-          <Devices linkToken={token ?? undefined} />
+        <div style={{ maxHeight: '70vh', overflowY: 'auto', padding: '1rem' }}>
+          {error && (
+            <Alert
+              type="error"
+              message={error}
+              action={<Button size="small" onClick={fetchToken}>Retry</Button>}
+              style={{ marginBottom: 8 }}
+            />
+          )}
+          <div id="link-device-desc">
+            <Devices linkToken={token ?? undefined} />
+          </div>
         </div>
       </Modal>
     </>
