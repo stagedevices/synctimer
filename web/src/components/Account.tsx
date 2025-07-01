@@ -444,24 +444,10 @@ export function Account() {
           await deleteDoc(doc(db, 'usernames', oldLower));
         }
       } else if (field === 'email') {
-        // New email entered, trim whitespace
+        // Trim the new email
         const newEmail = value.trim();
 
-        // Check if the email already exists on another account
-        let methods: string[] = [];
-        try {
-          methods = await fetchSignInMethodsForEmail(auth, newEmail);
-        } catch (e) {
-          // Fetch failed; show error and revert
-          const msg = (e as FirebaseError).message ?? String(e);
-          message.error(msg);
-          animate('email', 'error');
-          setValues(v => ({ ...v, email: original.email }));
-          setSavingField(null);
-          return;
-        }
-
-        // If unchanged, nothing to do
+        // Skip checks if unchanged
         if (
           newEmail.toLowerCase() === (auth.currentUser?.email ?? '').toLowerCase()
         ) {
@@ -469,19 +455,36 @@ export function Account() {
           return;
         }
 
-        // Existing account found with this email
+        // Verify the email doesn't already exist
+
+        let methods: string[] = [];
+        try {
+          methods = await fetchSignInMethodsForEmail(auth, newEmail);
+        } catch (e) {
+          // Fetch failed
+          const msg = (e as FirebaseError).message ?? String(e);
+          message.error(msg);
+          animate('email', 'error');
+          setValues((v) => ({ ...v, email: original.email }));
+
+          setSavingField(null);
+          return;
+        }
+
         if (methods.length > 0) {
+          // Email belongs to another account
           animate('email', 'error');
           message.error('Email already in use.');
-          setValues(v => ({ ...v, email: auth.currentUser?.email || '' }));
+          setValues((v) => ({ ...v, email: auth.currentUser?.email || '' }));
+
           setSavingField(null);
           return;
         }
 
         try {
-          // Update Firebase auth
+          // Update Firebase Auth and Firestore
           await updateEmail(auth.currentUser!, newEmail);
-          // Persist in Firestore profile
+
           await setDoc(
             doc(db, 'users', uid),
             { profile: { email: newEmail } },
@@ -489,13 +492,14 @@ export function Account() {
           );
           message.success('Email updated.');
           animate('email', 'success');
-          setOriginal(o => ({ ...o, email: newEmail }));
+          setOriginal((o) => ({ ...o, email: newEmail }));
         } catch (e) {
-          // Revert on failure
+          // Error updating
           const msg = (e as FirebaseError).message ?? String(e);
           message.error(msg);
           animate('email', 'error');
-          setValues(v => ({ ...v, email: original.email }));
+          setValues((v) => ({ ...v, email: original.email }));
+
         }
 
         setSavingField(null);
