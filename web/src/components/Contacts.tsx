@@ -104,6 +104,7 @@ export function Contacts() {
         return removeFriend(other.id)
           .then(refetch)
           .finally(() => setRemoving(null));
+
       },
     });
   };
