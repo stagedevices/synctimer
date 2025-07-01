@@ -11,12 +11,15 @@ import { AccountLanding } from './pages/AccountLanding';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from './lib/firebase';
-import { Spin, Button } from 'antd';
+import { Spin, Button, Badge } from 'antd';
 import { signOut } from 'firebase/auth';
+import { BellOutlined } from '@ant-design/icons';
+import { useIncomingCount } from './hooks/useFriends';
 
 
 export function App() {
   const [user, loading] = useAuthState(auth);
+  const incoming = useIncomingCount();
   if (loading) return <Spin />;
 
   return (
@@ -28,6 +31,9 @@ export function App() {
           <Link to="/files">Files</Link>
           <Link to="/groups">Groups</Link>
           <Link to="/contacts">Contacts</Link>
+          <Badge count={incoming} offset={[0,0]}>
+            <BellOutlined style={{ fontSize: 18, marginLeft: 8 }} />
+          </Badge>
           <Link to="/devices">Link Phone</Link>
           <Button type="link" onClick={() => signOut(auth)}>
             Sign Out
