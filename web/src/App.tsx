@@ -1,5 +1,11 @@
 // web/src/App.tsx
-import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  NavLink,
+  Navigate,
+} from 'react-router-dom';
 import { UploadValidate } from './components/UploadValidate';
 import { Files } from './components/Files';
 import { Contacts } from './components/Contacts';
@@ -15,6 +21,8 @@ import { Spin, Button, Badge } from 'antd';
 import { signOut } from 'firebase/auth';
 import { BellOutlined } from '@ant-design/icons';
 import { useIncomingCount } from './hooks/useFriends';
+import { motion } from 'framer-motion';
+import { PageAnimator } from './components/PageAnimator';
 
 
 export function App() {
@@ -25,36 +33,100 @@ export function App() {
   return (
     <BrowserRouter>
       {user && (
-        <nav className="p-4 space-x-4 glass-nav">
-          <Link to="/account">Account</Link>
-          <Link to="/parse">Validate XML</Link>
-          <Link to="/files">Files</Link>
-          <Link to="/groups">Groups</Link>
-          <Link to="/contacts">Contacts</Link>
-          <Badge count={incoming} offset={[0,0]}>
+        <nav className="glass-nav">
+          {[
+            ['/account', 'Account'],
+            ['/parse', 'Validate XML'],
+            ['/files', 'Files'],
+            ['/groups', 'Groups'],
+            ['/contacts', 'Contacts'],
+          ].map(([to, label]) => (
+            <NavLink key={to} to={to} className="nav-link">
+              {({ isActive }) => (
+                <span className="relative">
+                  {label}
+                  {isActive && (
+                    <motion.div layoutId="nav-highlight" className="nav-highlight" />
+                  )}
+                </span>
+              )}
+            </NavLink>
+          ))}
+          <Badge count={incoming} offset={[0, 0]}>
             <BellOutlined style={{ fontSize: 18, marginLeft: 8 }} />
           </Badge>
-          <Link to="/devices">Link Phone</Link>
+          <NavLink to="/devices" className="nav-link">
+            {({ isActive }) => (
+              <span className="relative">
+                Link Phone
+                {isActive && (
+                  <motion.div layoutId="nav-highlight" className="nav-highlight" />
+                )}
+              </span>
+            )}
+          </NavLink>
           <Button type="link" onClick={() => signOut(auth)}>
             Sign Out
           </Button>
         </nav>
       )}
-      <Routes>
-        <Route path="/" element={<AccountLanding />} />
-        <Route
-          path="/account"
-          element={
-            auth.currentUser ? <AccountProfile /> : <AccountLanding />
-          }
-        />
-        <Route path="/parse" element={<ProtectedRoute><UploadValidate /></ProtectedRoute>} />
-        <Route path="/files" element={<ProtectedRoute><Files /></ProtectedRoute>} />
-        <Route path="/groups" element={<ProtectedRoute><Groups /></ProtectedRoute>} />
-        <Route path="/contacts" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
-        <Route path="/devices" element={<ProtectedRoute><Devices /></ProtectedRoute>} />
-        <Route path="*" element={<ProtectedRoute><Navigate to="/parse" replace /></ProtectedRoute>} />
-      </Routes>
+      <PageAnimator>
+        <Routes>
+          <Route path="/" element={<AccountLanding />} />
+          <Route
+            path="/account"
+            element={auth.currentUser ? <AccountProfile /> : <AccountLanding />}
+          />
+          <Route
+            path="/parse"
+            element={
+              <ProtectedRoute>
+                <UploadValidate />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/files"
+            element={
+              <ProtectedRoute>
+                <Files />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/groups"
+            element={
+              <ProtectedRoute>
+                <Groups />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/contacts"
+            element={
+              <ProtectedRoute>
+                <Contacts />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/devices"
+            element={
+              <ProtectedRoute>
+                <Devices />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="*"
+            element={
+              <ProtectedRoute>
+                <Navigate to="/parse" replace />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </PageAnimator>
     </BrowserRouter>
   );
 }
