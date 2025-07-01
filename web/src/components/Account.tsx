@@ -15,7 +15,6 @@ import {
   Progress,
   Tag,
 } from 'antd';
-import type { InputRef } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '../lib/firebase';
@@ -55,7 +54,8 @@ import 'react-easy-crop/react-easy-crop.css';
 import imageCompression from 'browser-image-compression';
 import { saveAs } from 'file-saver';
 import { toast } from '../lib/toast';
-import { shake } from '../lib/animations';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../lib/firebase';
 
 const LoadingSpinner = Spin;
 
@@ -137,8 +137,12 @@ export function Account() {
 
   // local email value and saving state
   const [email, setEmail] = useState('');
-  const [isEmailSaving, setIsEmailSaving] = useState(false);
-  const emailInputRef = useRef<InputRef>(null);
+
+  // change email modal state
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [emailForm] = Form.useForm();
+  const [emailSubmitting, setEmailSubmitting] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
 
   const [values, setValues] = useState({
     displayName: '',
@@ -167,6 +171,14 @@ export function Account() {
     username: useRef<HTMLDivElement | null>(null),
     email: useRef<HTMLDivElement | null>(null),
   };
+
+  // show success toast when redirected from verification
+  useEffect(() => {
+    if (window.location.hash === '#emailUpdated') {
+      toast.success('Your email has been updated successfully.');
+      window.location.hash = '';
+    }
+  }, []);
 
   // Fetch profile once on mount to avoid resetting values on each keystroke
   useEffect(() => {
@@ -511,42 +523,6 @@ export function Account() {
     }
   };
 
-  // handle updating the user's email on input blur
-  const handleEmailBlur = async (
-    e: React.FocusEvent<HTMLInputElement>,
-  ) => {
-    const newEmail = e.target.value.trim();
-    const currentEmail = auth.currentUser?.email;
-    if (newEmail === currentEmail) return;
-    setIsEmailSaving(true);
-    try {
-      // 1) Check if already registered
-      const methods = await fetchSignInMethodsForEmail(auth, newEmail);
-      if (methods.length > 0) {
-        shake(emailInputRef.current?.input || null);
-        toast.error('Email already in use.');
-        // revert input
-        setEmail(currentEmail || '');
-      } else {
-        // 2) Update Firebase Auth
-        await updateEmail(auth.currentUser!, newEmail);
-        // 3) Persist to Firestore
-        await setDoc(
-          doc(db, 'users', auth.currentUser!.uid, 'profile'),
-          { email: newEmail },
-          { merge: true },
-        );
-        toast.success('Email updated.');
-      }
-    } catch (err: unknown) {
-      shake(emailInputRef.current?.input || null);
-      const msg = err instanceof Error ? err.message : String(err);
-      toast.error(msg || 'Failed to update email.');
-      setEmail(currentEmail || '');
-    } finally {
-      setIsEmailSaving(false);
-    }
-  };
 
   const strength = (pw: string) => {
     let score = 0;
@@ -597,6 +573,38 @@ export function Account() {
     } catch (e) {
       const msg = (e as FirebaseError).message ?? String(e);
       message.error(msg);
+    }
+  };
+
+  const submitEmailChange = async () => {
+    try {
+      const { newEmail, currentPassword } = await emailForm.validateFields();
+      setEmailSubmitting(true);
+      const fn = httpsCallable(functions, 'initiateEmailChange');
+      await fn({ newEmail, currentPassword });
+      toast.success(`Verification email sent to ${newEmail}. Please click the link to confirm.`);
+      setPendingEmail(newEmail);
+      setEmailModalOpen(false);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(msg);
+    } finally {
+      setEmailSubmitting(false);
+    }
+  };
+
+  const resendEmailChange = async () => {
+    if (!pendingEmail) return;
+    try {
+      setEmailSubmitting(true);
+      const fn = httpsCallable(functions, 'initiateEmailChange');
+      await fn({ newEmail: pendingEmail, currentPassword: '' });
+      toast.success(`Verification email sent to ${pendingEmail}. Please click the link to confirm.`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(msg);
+    } finally {
+      setEmailSubmitting(false);
     }
   };
 
@@ -801,31 +809,14 @@ export function Account() {
           </div>
 
           <div ref={refs.email} style={{ marginTop: 16 }}>
-            <Form.Item label="Email" validateStatus={errors.email ? 'error' : ''} help={errors.email || ''}>
+            <Form.Item label="Email">
               <div style={{ display: 'flex', gap: 8 }}>
-                <Input
-                  ref={emailInputRef}
-                  style={{ flex: 1 }}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={isEmailSaving}
-                  suffix={
-                    isEmailSaving ? <LoadingSpinner size="small" /> : undefined
-                  }
-                  onBlur={handleEmailBlur}
-                />
-                <Button
-                  size="small"
-                  type="primary"
-                  onClick={() => handleEmailBlur({
-                    target: { value: email },
-                  } as React.FocusEvent<HTMLInputElement>)}
-                  disabled={
-                    isEmailSaving || email === original.email || !!errors.email
-                  }
-                  loading={isEmailSaving}
-                >
-                  Save
+                <Input style={{ flex: 1 }} value={email} disabled readOnly />
+                <Button size="small" type="primary" onClick={() => {
+                  emailForm.setFieldsValue({ newEmail: '', currentPassword: '' });
+                  setEmailModalOpen(true);
+                }}>
+                  Change Email
                 </Button>
               </div>
             </Form.Item>
@@ -867,6 +858,31 @@ export function Account() {
         </Card>
       </Col>
     </Row>
+    <Modal
+      open={emailModalOpen}
+      title="Change Email"
+      onCancel={() => setEmailModalOpen(false)}
+      footer={null}
+    >
+      <Form form={emailForm} layout="vertical" onFinish={submitEmailChange}>
+        <Form.Item name="newEmail" label="New Email" rules={[{ required: true, type: 'email' }]}> 
+          <Input />
+        </Form.Item>
+        <Form.Item name="currentPassword" label="Current Password" rules={[{ required: true }]}> 
+          <Input.Password />
+        </Form.Item>
+        <Form.Item>
+          <Button type="primary" htmlType="submit" block loading={emailSubmitting} disabled={emailSubmitting}>
+            Submit
+          </Button>
+        </Form.Item>
+      </Form>
+      {pendingEmail && (
+        <Button type="link" onClick={resendEmailChange} disabled={emailSubmitting}>
+          Resend verification email
+        </Button>
+      )}
+    </Modal>
     </>
   );
 }

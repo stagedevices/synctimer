@@ -5,6 +5,9 @@ import cors from "cors";
 import { FieldValue } from "firebase-admin/firestore";
 import { randomUUID } from "crypto";
 
+// Export email change functions
+export * from "./email";
+
 admin.initializeApp();
 const db = admin.firestore();
 

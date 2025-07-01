@@ -19,6 +19,11 @@ import {
   connectStorageEmulator,
   type FirebaseStorage,
 } from 'firebase/storage';
+import {
+  getFunctions,
+  connectFunctionsEmulator,
+  type Functions,
+} from 'firebase/functions';
 
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -65,4 +70,10 @@ export function signInWithApple() {
 export async function unlinkProvider(providerId: string) {
   if (!auth.currentUser) throw new Error('No current user');
   return unlink(auth.currentUser, providerId);
+}
+
+// — Functions setup —
+export const functions: Functions = getFunctions(app);
+if (import.meta.env.DEV) {
+  connectFunctionsEmulator(functions, '127.0.0.1', 5001);
 }
