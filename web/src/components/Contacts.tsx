@@ -36,6 +36,7 @@ export function Contacts() {
     removeLocal,
   } = useFriends();
 
+
   const [search, setSearch] = useState('');
   const results = useUserSearch(search);
   const [selected, setSelected] = useState<UserInfo | null>(null);
@@ -114,6 +115,7 @@ export function Contacts() {
             return refetch();
           })
           .finally(() => setRemoving(null));
+
       },
     });
   };
