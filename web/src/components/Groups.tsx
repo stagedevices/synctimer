@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Card, List, Button, Spin, Modal, Input, Select, Tag } from 'antd';
+import { Card, List, Button, Spin, Modal, Input, Select } from 'antd';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '../lib/firebase';
 import {
@@ -11,7 +11,6 @@ import {
   deleteDoc,
   query,
   where,
-  serverTimestamp,
 } from 'firebase/firestore';
 
 interface Group {
@@ -20,7 +19,6 @@ interface Group {
   description?: string;
   managerUid: string;
   visibility: 'invite-only' | 'request-to-join';
-  status: 'pending' | 'verified' | 'rejected';
 }
 
 export function Groups() {
@@ -69,8 +67,6 @@ export function Groups() {
         managerUid: uid,
         visibility,
         memberCount: 1,
-        status: 'pending',
-        verification: { requestedAt: serverTimestamp(), method: 'email' },
       });
       await setDoc(doc(db, 'groups', docRef.id, 'members', uid), { role: 'manager' });
       await setDoc(doc(db, 'users', uid, 'groups', docRef.id), { role: 'manager' });
@@ -105,17 +101,7 @@ export function Groups() {
               </Button>,
             ]}
           >
-            <List.Item.Meta
-              title={
-                <>
-                  {g.name}{' '}
-                  {g.status === 'verified' && <Tag color="green">Verified</Tag>}
-                  {g.status === 'pending' && <Tag color="orange">Pending</Tag>}
-                  {g.status === 'rejected' && <Tag color="red">Rejected</Tag>}
-                </>
-              }
-              description={g.description}
-            />
+            <List.Item.Meta title={g.name} description={g.description} />
           </List.Item>
         )}
       />
