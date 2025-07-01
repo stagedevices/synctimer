@@ -23,3 +23,4 @@ cd web && pnpm lint && pnpm build
 ```
 
 Make sure your Node version is 20.x to match the Cloud Functions runtime.
+

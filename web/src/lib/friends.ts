@@ -1,5 +1,6 @@
 import { doc, deleteDoc } from 'firebase/firestore';
 import { auth, db } from './firebase';
+
 import { message } from 'antd';
 
 /**
@@ -9,6 +10,7 @@ import { message } from 'antd';
 export async function removeFriend(friendUid: string): Promise<void> {
   const currentUid = auth.currentUser?.uid;
   if (!currentUid) throw new Error('Not authenticated');
+
   try {
     await Promise.all([
       deleteDoc(doc(db, 'users', currentUid, 'contacts', friendUid)),

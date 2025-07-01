@@ -63,6 +63,7 @@ export async function signUp(
   if (await emailInUse(email)) {
     throw new Error('Email already in use');
   }
+
   // Check the usernames mapping first for existing entries
   const usernameRef = doc(db, 'usernames', h);
   const usernameSnap = await getDoc(usernameRef);
