@@ -10,6 +10,7 @@ import {
   FolderOpenOutlined,
   TeamOutlined,
   ContactsOutlined,
+  TagOutlined,
 } from '@ant-design/icons';
 
 export function Sidebar() {
@@ -35,6 +36,7 @@ export function Sidebar() {
     ['/parse', 'Validate XML', <FileSearchOutlined />],
     ['/files', 'Files', <FolderOpenOutlined />],
     ['/groups', 'Groups', <TeamOutlined />],
+    ['/explore', 'Explore', <TagOutlined />],
     ['/contacts', 'Contacts', <ContactsOutlined />],
   ] as const;
 

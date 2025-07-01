@@ -10,6 +10,8 @@ import { Files } from './components/Files';
 import { Contacts } from './components/Contacts';
 import { LinkDeviceModal } from './components/LinkDeviceModal';
 import { Groups } from './components/Groups';
+import { Explore } from './components/Explore';
+import { TagDetail } from './components/TagDetail';
 
 import { Account as AccountProfile } from './components/Account';
 import { AccountLanding } from './pages/AccountLanding';
@@ -58,6 +60,22 @@ export function App() {
             element={
               <ProtectedRoute>
                 <Groups />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/explore"
+            element={
+              <ProtectedRoute>
+                <Explore />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/explore/:tagId"
+            element={
+              <ProtectedRoute>
+                <TagDetail />
               </ProtectedRoute>
             }
           />
