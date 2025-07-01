@@ -136,7 +136,8 @@ export function AccountLanding() {
               padding: '2rem',
               borderRadius: '1.5rem',
               backdropFilter: 'blur(8px)',
-              background: 'rgba(255,255,255,0.6)',
+              // Use shared glass token for consistency
+              background: 'var(--glass-bg)',
             }}
           >
 

@@ -9,9 +9,9 @@ import { saveAs } from "file-saver";
 import { auth, db } from "../lib/firebase";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 
-// Glassmorphic card style
+// Glassmorphic card style using global token
 const glassStyle: CSSProperties = {
-  background: 'rgba(255,255,255,0.6)',
+  background: 'var(--glass-bg)',
   backdropFilter: 'blur(8px)',
   borderRadius: '1.5rem',
   boxShadow: '0 8px 32px rgba(0,0,0,0.125)',
