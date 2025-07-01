@@ -13,6 +13,7 @@ import {
   Collapse,
   message,
   Progress,
+  Tag,
 } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -30,6 +31,8 @@ import {
   updateDoc,
   getDoc,
   getDocs,
+  setDoc,
+  onSnapshot,
   query,
   where,
   collection,
@@ -145,6 +148,12 @@ export function Account() {
   const [errors, setErrors] = useState<Partial<Record<keyof typeof values, string>>>({});
   const [savingField, setSavingField] = useState<keyof typeof values | null>(null);
 
+  const [tags, setTags] = useState<string[]>([]);
+  const [groups, setGroups] = useState<Array<{ id: string; name: string; status: string }>>([]);
+  const [tagModal, setTagModal] = useState(false);
+  const [tagSearch, setTagSearch] = useState('');
+  const [tagResults, setTagResults] = useState<Array<{ id: string; name: string }>>([]);
+
   const refs: Record<keyof typeof values, React.RefObject<HTMLDivElement | null>> = {
     displayName: useRef<HTMLDivElement | null>(null),
     bio: useRef<HTMLDivElement | null>(null),
@@ -192,6 +201,52 @@ export function Account() {
         setLoadingUser(false);
       }
     })();
+  }, [uid]);
+
+  // fetch tag search results when modal open
+  useEffect(() => {
+    if (!tagModal || !tagSearch) {
+      setTagResults([]);
+      return;
+    }
+    (async () => {
+      const q = query(
+        collection(db, 'tags'),
+        where('name', '>=', tagSearch.toLowerCase()),
+        where('name', '<=', tagSearch.toLowerCase() + '\uf8ff')
+      );
+      const snap = await getDocs(q);
+      setTagResults(snap.docs.map(d => ({ id: d.id, name: (d.data() as {name: string}).name })));
+    })();
+  }, [tagModal, tagSearch]);
+
+  // subscribe to user's tags
+  useEffect(() => {
+    if (!uid) return;
+    const ref = collection(db, 'users', uid, 'tags');
+    const unsub = onSnapshot(ref, snap => {
+      setTags(snap.docs.map(d => d.id));
+    });
+    return unsub;
+  }, [uid]);
+
+  // subscribe to user's groups
+  useEffect(() => {
+    if (!uid) return;
+    const ref = collection(db, 'users', uid, 'groups');
+    const unsub = onSnapshot(ref, async snap => {
+      const ids = snap.docs.map(d => d.id);
+      const results: Array<{ id: string; name: string; status: string }> = [];
+      for (const id of ids) {
+        const g = await getDoc(doc(db, 'groups', id));
+        if (g.exists()) {
+          const data = g.data() as { name: string; status: string };
+          results.push({ id, name: data.name, status: data.status });
+        }
+      }
+      setGroups(results);
+    });
+    return unsub;
   }, [uid]);
 
 
@@ -445,7 +500,32 @@ export function Account() {
     message.success('Account deleted');
   };
 
+  const joinTag = async (id: string) => {
+    if (!uid) return;
+    const lower = id.toLowerCase();
+    try {
+      await setDoc(doc(db, 'tags', lower), { name: lower }, { merge: true });
+      await setDoc(doc(db, 'tags', lower, 'members', uid), {});
+      await setDoc(doc(db, 'users', uid, 'tags', lower), { name: lower });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      message.error(msg);
+    }
+  };
+
+  const leaveTag = async (id: string) => {
+    if (!uid) return;
+    try {
+      await deleteDoc(doc(db, 'tags', id, 'members', uid));
+      await deleteDoc(doc(db, 'users', uid, 'tags', id));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      message.error(msg);
+    }
+  };
+
   return (
+    <>
     <Row gutter={[16, 16]} style={{ margin: '2rem' }}>
       <Col xs={24} md={12}>
         <Card title="Preview" className="glass-card">
@@ -462,10 +542,35 @@ export function Account() {
 
           </div>
           <p><strong>{values.displayName}</strong></p>
-          <p>{values.bio}</p>
-          <p>{values.pronouns}</p>
-          <p>@{username}</p>
-          <p>{values.email}</p>
+        <p>{values.bio}</p>
+        <p>{values.pronouns}</p>
+        <p>@{username}</p>
+        <p>{values.email}</p>
+        </Card>
+        <Card title="My Tags" className="glass-card" style={{ marginTop: 16 }}>
+          {tags.map(t => (
+            <Tag
+              key={t}
+              closable
+              onClose={() => leaveTag(t)}
+              style={{ marginBottom: 4 }}
+            >
+              #{t}
+            </Tag>
+          ))}
+          <Button size="small" onClick={() => setTagModal(true)} style={{ marginLeft: 8 }}>
+            + Join
+          </Button>
+        </Card>
+        <Card title="My Ensembles" className="glass-card" style={{ marginTop: 16 }}>
+          {groups.map(g => (
+            <Tag key={g.id} color={g.status === 'verified' ? 'green' : g.status === 'pending' ? 'orange' : 'red'} style={{ marginBottom: 4 }}>
+              {g.name}
+            </Tag>
+          ))}
+          <Button size="small" style={{ marginLeft: 8 }} onClick={() => window.location.href='/groups'}>
+            Manage
+          </Button>
         </Card>
       </Col>
       <Col xs={24} md={12}>
@@ -641,5 +746,26 @@ export function Account() {
         </Card>
       </Col>
     </Row>
+    <Modal
+      title="Discover Tags"
+      open={tagModal}
+      onCancel={() => setTagModal(false)}
+      footer={null}
+    >
+      <Input
+        placeholder="Search tags"
+        style={{ marginBottom: 8 }}
+        value={tagSearch}
+        onChange={e => setTagSearch(e.target.value)}
+      />
+      {tagResults.map(t => (
+        <div key={t.id} style={{ marginBottom: 4 }}>
+          <Button type="link" onClick={() => { joinTag(t.id); setTagModal(false); }}>
+            Join #{t.name}
+          </Button>
+        </div>
+      ))}
+    </Modal>
+    </>
   );
 }

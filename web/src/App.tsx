@@ -6,6 +6,7 @@ import SharedFiles from './components/SharedFiles';
 import { SentFiles } from './components/SentFiles';
 import { Contacts } from './components/Contacts';
 import { Devices } from './components/Devices';
+import { Groups } from './components/Groups';
 
 import { Account as AccountProfile } from './components/Account';
 import Settings from './components/Settings';
@@ -31,6 +32,7 @@ export function App() {
           <Link to="/files">My Files</Link>
           <Link to="/shared">Shared with Me</Link>
           <Link to="/sent">Sent Files</Link>
+          <Link to="/groups">Groups</Link>
           <Link to="/contacts">Contacts</Link>
           <Link to="/devices">Link Phone</Link>
           <Button type="link" onClick={() => signOut(auth)}>
@@ -51,6 +53,7 @@ export function App() {
         <Route path="/files" element={<ProtectedRoute><MyFiles /></ProtectedRoute>} />
         <Route path="/shared" element={<ProtectedRoute><SharedFiles /></ProtectedRoute>} />
         <Route path="/sent" element={<ProtectedRoute><SentFiles /></ProtectedRoute>} />
+        <Route path="/groups" element={<ProtectedRoute><Groups /></ProtectedRoute>} />
         <Route path="/contacts" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
         <Route path="/devices" element={<ProtectedRoute><Devices /></ProtectedRoute>} />
         <Route path="*" element={<ProtectedRoute><Navigate to="/parse" replace /></ProtectedRoute>} />
