@@ -157,10 +157,12 @@ button:focus-visible {
 
 /* Glass card base */
 .glass-card {
-  background: rgba(255, 255, 255, 0.4);
+  /* Use global glass token for card background */
+  background: var(--glass-bg);
   backdrop-filter: blur(12px);
   border-radius: 1.5rem;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  color: var(--glass-text);
   transition: all 250ms;
 }
 
@@ -230,7 +232,8 @@ button:focus-visible {
   left: 0;
   bottom: 0;
   width: var(--sidebar-width);
-  background: rgba(255, 255, 255, 0.8);
+  /* Sidebar uses the shared glass background */
+  background: var(--glass-bg);
   backdrop-filter: blur(12px);
   box-shadow: 2px 0 12px rgba(0, 0, 0, 0.15);
   border-right: 1px solid rgba(255, 255, 255, 0.6);
@@ -323,10 +326,12 @@ button:focus-visible {
 }
 
 .glass-modal .ant-modal-content {
-  background: rgba(255, 255, 255, 0.4);
+  /* Modal glass background matches cards */
+  background: var(--glass-bg);
   backdrop-filter: blur(12px);
   border-radius: 1.5rem;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  color: var(--glass-text);
 }
 
 .ant-modal-close:focus-visible,
@@ -355,14 +360,17 @@ button:focus-visible {
   position: absolute;
   bottom: 1rem;
   width: calc(100% - 2rem);
-  background: rgba(255, 255, 255, 0.4);
+  /* Button uses control glass token */
+  background: var(--glass-control-bg);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: 0.5rem;
+  color: var(--glass-text);
   transition: background-color 0.2s var(--ease);
 }
-.signout-btn:hover {
-  background: rgba(255, 255, 255, 0.55);
+.signout-btn:hover,
+.signout-btn:focus {
+  background: rgba(255, 255, 255, 0.63);
 }
 body[data-theme='dark'] .signout-btn {
   background: rgba(0, 0, 0, 0.4);
