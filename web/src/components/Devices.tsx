@@ -22,7 +22,8 @@ import { auth, db } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 
-import { CSSTransition, TransitionGroup } from 'react-transition-group';
+import { motion, useReducedMotion } from 'framer-motion';
+import { cardVariants, motion as m } from '../theme/motion';
 
 const SECRET = import.meta.env.VITE_DEVICE_SECRET || 'dev-secret';
 
@@ -37,6 +38,7 @@ interface Device {
 export function Devices() {
   const navigate = useNavigate();
   const uid = auth.currentUser?.uid;
+  const reduce = useReducedMotion() ?? false;
 
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
@@ -180,9 +182,13 @@ export function Devices() {
                 No devices connected—scan the QR code with your Synctimer app to link.
               </p>
             ) : (
-              <TransitionGroup component={null}>
+              <motion.div
+                variants={{ show: { transition: { staggerChildren: m.durations.stagger } } }}
+                initial="show"
+                animate="show"
+              >
                 {devices.map(d => (
-                  <CSSTransition key={d.id} timeout={250} classNames="fade">
+                  <motion.div variants={cardVariants(reduce)} key={d.id}>
                     <Card
                       id={'device-' + d.id}
                       className="glass-card"
@@ -228,9 +234,9 @@ export function Devices() {
                         </div>
                       </div>
                     </Card>
-                  </CSSTransition>
+                  </motion.div>
                 ))}
-              </TransitionGroup>
+              </motion.div>
             )}
           </Spin>
         </Col>

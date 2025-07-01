@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Card, List, Button, Spin, Modal, Input, Select } from 'antd';
+import { motion, useReducedMotion } from 'framer-motion';
+import { cardVariants, motion as m } from '../theme/motion';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '../lib/firebase';
 import {
@@ -24,6 +26,7 @@ interface Group {
 export function Groups() {
   const [user] = useAuthState(auth);
   const uid = user?.uid;
+  const reduce = useReducedMotion() ?? false;
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -91,20 +94,28 @@ export function Groups() {
       <Button onClick={() => setModalOpen(true)} style={{ marginBottom: 16 }}>
         Create Group
       </Button>
-      <List
-        dataSource={groups}
-        renderItem={g => (
-          <List.Item
-            actions={[
-              <Button key="leave" onClick={() => leaveGroup(g.id)}>
-                Leave
-              </Button>,
-            ]}
-          >
-            <List.Item.Meta title={g.name} description={g.description} />
-          </List.Item>
-        )}
-      />
+      <motion.div
+        variants={{ show: { transition: { staggerChildren: m.durations.stagger } } }}
+        initial="show"
+        animate="show"
+      >
+        <List
+          dataSource={groups}
+          renderItem={g => (
+            <motion.div variants={cardVariants(reduce)} key={g.id}>
+              <List.Item
+                actions={[
+                  <Button key="leave" onClick={() => leaveGroup(g.id)}>
+                    Leave
+                  </Button>,
+                ]}
+              >
+                <List.Item.Meta title={g.name} description={g.description} />
+              </List.Item>
+            </motion.div>
+          )}
+        />
+      </motion.div>
       <Modal
         title="Create Group"
         open={modalOpen}

@@ -11,6 +11,8 @@ import {
   message,
 } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
+import { motion, useReducedMotion } from 'framer-motion';
+import { cardVariants, motion as m } from '../theme/motion';
 import {
   doc,
   setDoc,
@@ -23,6 +25,7 @@ import type { UserInfo } from '../hooks/useFriends';
 
 export function Contacts() {
   const uid = auth.currentUser?.uid;
+  const reduce = useReducedMotion() ?? false;
   const { contacts, incoming, outgoing, loading } = useFriends();
 
   const [search, setSearch] = useState('');
@@ -111,62 +114,78 @@ export function Contacts() {
       key: 'contacts',
       label: 'Contacts',
       children: (
-        <List
-          loading={loading}
-          dataSource={contacts}
-          renderItem={c => (
-            <List.Item>
-              <Card
-                className="glass-card"
-                style={{ width: '100%' }}
-                actions={[
-                  <Button
-                    key="del"
-                    danger
-                    icon={<DeleteOutlined />}
-                    onClick={() => remove(c)}
+        <motion.div
+          variants={{ show: { transition: { staggerChildren: m.durations.stagger } } }}
+          initial="show"
+          animate="show"
+        >
+          <List
+            loading={loading}
+            dataSource={contacts}
+            renderItem={c => (
+              <motion.div variants={cardVariants(reduce)} key={c.id}>
+                <List.Item>
+                  <Card
+                    className="glass-card"
+                    style={{ width: '100%' }}
+                    actions={[
+                      <Button
+                        key="del"
+                        danger
+                        icon={<DeleteOutlined />}
+                        onClick={() => remove(c)}
+                      >
+                        Remove
+                      </Button>,
+                    ]}
                   >
-                    Remove
-                  </Button>,
-                ]}
-              >
-                <Card.Meta
-                  avatar={<Avatar src={c.photoURL} />}
-                  title={c.displayName || c.email}
-                  description={`@${c.handle || ''}`}
-                />
-              </Card>
-            </List.Item>
-          )}
-        />
+                    <Card.Meta
+                      avatar={<Avatar src={c.photoURL} />}
+                      title={c.displayName || c.email}
+                      description={`@${c.handle || ''}`}
+                    />
+                  </Card>
+                </List.Item>
+              </motion.div>
+            )}
+          />
+        </motion.div>
       ),
     },
     {
       key: 'outgoing',
       label: 'Requests Sent',
       children: (
-        <List
-          dataSource={outgoing}
-          renderItem={o => (
-            <List.Item>
-              <Card
-                className="glass-card"
-                style={{ width: '100%' }}
-                actions={[
-                  <Button key="cancel" onClick={() => cancel(o)}>
-                    Cancel Request
-                  </Button>,
-                ]}
-              >
-                <Card.Meta
-                  avatar={<Avatar src={o.photoURL} />}
-                  title={o.displayName || o.email}
-                  description={`@${o.handle || ''}`}
-                />
-              </Card>
-            </List.Item>
-          )}
-        />
+        <motion.div
+          variants={{ show: { transition: { staggerChildren: m.durations.stagger } } }}
+          initial="show"
+          animate="show"
+        >
+          <List
+            dataSource={outgoing}
+            renderItem={o => (
+              <motion.div variants={cardVariants(reduce)} key={o.id}>
+                <List.Item>
+                  <Card
+                    className="glass-card"
+                    style={{ width: '100%' }}
+                    actions={[
+                      <Button key="cancel" onClick={() => cancel(o)}>
+                        Cancel Request
+                      </Button>,
+                    ]}
+                  >
+                    <Card.Meta
+                      avatar={<Avatar src={o.photoURL} />}
+                      title={o.displayName || o.email}
+                      description={`@${o.handle || ''}`}
+                    />
+                  </Card>
+                </List.Item>
+              </motion.div>
+            )}
+          />
+        </motion.div>
       ),
     },
     {
@@ -178,35 +197,43 @@ export function Contacts() {
         </span>
       ),
       children: (
-        <List
-          dataSource={incoming}
-          renderItem={i => (
-            <List.Item>
-              <Card
-                className="glass-card"
-                style={{ width: '100%' }}
-                actions={[
-                  <Button
-                    key="accept"
-                    type="primary"
-                    onClick={() => accept(i)}
+        <motion.div
+          variants={{ show: { transition: { staggerChildren: m.durations.stagger } } }}
+          initial="show"
+          animate="show"
+        >
+          <List
+            dataSource={incoming}
+            renderItem={i => (
+              <motion.div variants={cardVariants(reduce)} key={i.id}>
+                <List.Item>
+                  <Card
+                    className="glass-card"
+                    style={{ width: '100%' }}
+                    actions={[
+                      <Button
+                        key="accept"
+                        type="primary"
+                        onClick={() => accept(i)}
+                      >
+                        Accept
+                      </Button>,
+                      <Button key="decline" danger onClick={() => decline(i)}>
+                        Decline
+                      </Button>,
+                    ]}
                   >
-                    Accept
-                  </Button>,
-                  <Button key="decline" danger onClick={() => decline(i)}>
-                    Decline
-                  </Button>,
-                ]}
-              >
-                <Card.Meta
-                  avatar={<Avatar src={i.photoURL} />}
-                  title={i.displayName || i.email}
-                  description={`@${i.handle || ''}`}
-                />
-              </Card>
-            </List.Item>
-          )}
-        />
+                    <Card.Meta
+                      avatar={<Avatar src={i.photoURL} />}
+                      title={i.displayName || i.email}
+                      description={`@${i.handle || ''}`}
+                    />
+                  </Card>
+                </List.Item>
+              </motion.div>
+            )}
+          />
+        </motion.div>
       ),
     },
   ];
