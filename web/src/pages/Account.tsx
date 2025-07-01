@@ -147,6 +147,7 @@ export function Account() {
 
   return (
     <ConfigProvider theme={{ token: { colorPrimary: '#70C73C', fontFamily: 'system-ui' } }}>
+      <div className="page-content">
       <Row justify="center" align="middle" style={{ minHeight: '100vh' }}>
         <Col xs={23} sm={16} md={12} lg={8}>
           <Card className="glass-card">
@@ -234,6 +235,7 @@ export function Account() {
           <Form.Item name="identifier" label="Email or Handle" rules={[{ required: true }]}> <Input /> </Form.Item>
         </Form>
       </Modal>
+      </div>
     </ConfigProvider>
   );
 }

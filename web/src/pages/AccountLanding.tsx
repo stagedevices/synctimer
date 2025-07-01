@@ -125,6 +125,7 @@ export function AccountLanding() {
 
   return (
     <ConfigProvider theme={{ token: { colorPrimary: '#70C73C', fontFamily: 'system-ui' } }}>
+      <div className="page-content">
       <Row style={{ width: '100vw', minHeight: '100vh' }}>
         <Col xs={0} md={12} />
         <Col xs={24} md={12} className="landing-side">
@@ -314,6 +315,7 @@ export function AccountLanding() {
 
         </Form>
       </Modal>
+      </div>
     </ConfigProvider>
   );
 }

@@ -688,7 +688,7 @@ export function Account() {
   };
 
   return (
-    <>
+    <div className="page-content">
     <Row gutter={[16, 16]} style={{ margin: '2rem' }}>
       <Col xs={24} md={12}>
         <Card title="Preview" className="glass-card">
@@ -966,6 +966,6 @@ export function Account() {
         </div>
       ))}
     </Modal>
-    </>
+    </div>
   );
 }

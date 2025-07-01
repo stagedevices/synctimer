@@ -124,8 +124,8 @@ export function Files() {
   if (loading) return <Spin />;
 
   return (
-    <>
-    <Card title="My Files" style={{ marginBottom: 16 }}>
+    <div className="page-content">
+      <Card title="My Files" style={{ marginBottom: 16 }}>
       {files.length === 0 ? (
         <div>No files yet — go validate one on the Validate page.</div>
       ) : (
@@ -172,8 +172,8 @@ export function Files() {
           )}
         />
       )}
-    </Card>
-    <Card title="Shared With Me">
+      </Card>
+      <Card title="Shared With Me">
       {shared.length === 0 ? (
         <div>No files shared with you yet.</div>
       ) : (
@@ -190,7 +190,7 @@ export function Files() {
           )}
         />
       )}
-    </Card>
-    </>
+      </Card>
+    </div>
   );
 }
