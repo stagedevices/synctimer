@@ -27,10 +27,29 @@ a:hover {
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
+  display: flex;
+  background: linear-gradient(to bottom, #70c73c, #4a8a2e);
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+PGZpbHRlciBpZD0ibiI+PGZlVHVyYnVsZW5jZSB0eXBlPSJmcmFjdGFsTm9pc2UiIGJhc2VGcmVxdWVuY3k9IjAuOCIgbnVtT2N0YXZlcz0iNCIvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbHRlcj0idXJsKCUyM24pIiBmaWxsPSJncmF5Ii8+PC9zdmc+");
+  background-size: 200px 200px;
+  opacity: 0.2;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+
+#root {
+  flex: 1;
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
 }
 
 .glass-nav {
@@ -137,10 +156,10 @@ button:focus-visible {
 
 /* Glass card base */
 .glass-card {
-  background: rgba(255, 255, 255, 0.125);
-  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(12px);
   border-radius: 1.5rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.125);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   transition: all 250ms;
 }
 
@@ -199,3 +218,76 @@ button:focus-visible {
 .animate-error {
   animation: error-shake 300ms ease-in-out;
 }
+
+:root {
+  --sidebar-width: 16rem;
+}
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--sidebar-width);
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.15);
+  border-right: 1px solid rgba(255, 255, 255, 0.6);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  z-index: 20;
+  transition: width 0.2s var(--ease);
+}
+
+.sidebar.collapsed {
+  width: 4rem;
+}
+
+.sidebar-nav {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  overflow-x: hidden;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  color: #000;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  transition: background-color 0.2s var(--ease), color 0.2s var(--ease);
+}
+
+.sidebar-link:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--accent);
+}
+
+.sidebar.collapsed .sidebar-link .label {
+  display: none;
+}
+
+.collapse-btn {
+  margin-left: auto;
+}
+
+.drawer-toggle {
+  position: fixed;
+  left: 1rem;
+  top: 1rem;
+  z-index: 30;
+}
+
+.main-content {
+  flex: 1;
+  min-height: 100vh;
+  margin-left: var(--sidebar-width);
+  padding: 1rem;
+  position: relative;
+}
+

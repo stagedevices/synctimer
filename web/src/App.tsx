@@ -3,7 +3,6 @@ import {
   BrowserRouter,
   Routes,
   Route,
-  NavLink,
   Navigate,
 } from 'react-router-dom';
 import { UploadValidate } from './components/UploadValidate';
@@ -17,61 +16,22 @@ import { AccountLanding } from './pages/AccountLanding';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from './lib/firebase';
-import { Spin, Button, Badge } from 'antd';
-import { signOut } from 'firebase/auth';
-import { BellOutlined } from '@ant-design/icons';
-import { useIncomingCount } from './hooks/useFriends';
-import { motion } from 'framer-motion';
+import { Spin } from 'antd';
 import { PageAnimator } from './components/PageAnimator';
+import { Sidebar } from './components/Sidebar';
+import { MainContent } from './components/MainContent';
 
 
 export function App() {
-  const [user, loading] = useAuthState(auth);
-  const incoming = useIncomingCount();
+  const [, loading] = useAuthState(auth);
   if (loading) return <Spin />;
 
   return (
     <BrowserRouter>
-      {user && (
-        <nav className="glass-nav">
-          {[
-            ['/account', 'Account'],
-            ['/parse', 'Validate XML'],
-            ['/files', 'Files'],
-            ['/groups', 'Groups'],
-            ['/contacts', 'Contacts'],
-          ].map(([to, label]) => (
-            <NavLink key={to} to={to} className="nav-link">
-              {({ isActive }) => (
-                <span className="relative">
-                  {label}
-                  {isActive && (
-                    <motion.div layoutId="nav-highlight" className="nav-highlight" />
-                  )}
-                </span>
-              )}
-            </NavLink>
-          ))}
-          <Badge count={incoming} offset={[0, 0]}>
-            <BellOutlined style={{ fontSize: 18, marginLeft: 8 }} />
-          </Badge>
-          <NavLink to="/devices" className="nav-link">
-            {({ isActive }) => (
-              <span className="relative">
-                Link Phone
-                {isActive && (
-                  <motion.div layoutId="nav-highlight" className="nav-highlight" />
-                )}
-              </span>
-            )}
-          </NavLink>
-          <Button type="link" onClick={() => signOut(auth)}>
-            Sign Out
-          </Button>
-        </nav>
-      )}
-      <PageAnimator>
-        <Routes>
+      <Sidebar />
+      <MainContent>
+        <PageAnimator>
+          <Routes>
           <Route path="/" element={<AccountLanding />} />
           <Route
             path="/account"
@@ -126,8 +86,10 @@ export function App() {
             }
           />
         </Routes>
-      </PageAnimator>
+        </PageAnimator>
+      </MainContent>
     </BrowserRouter>
   );
 }
+
 
