@@ -456,6 +456,7 @@ export function Account() {
         }
 
         // Verify the email doesn't already exist
+
         let methods: string[] = [];
         try {
           methods = await fetchSignInMethodsForEmail(auth, newEmail);
@@ -465,6 +466,7 @@ export function Account() {
           message.error(msg);
           animate('email', 'error');
           setValues((v) => ({ ...v, email: original.email }));
+
           setSavingField(null);
           return;
         }
@@ -474,6 +476,7 @@ export function Account() {
           animate('email', 'error');
           message.error('Email already in use.');
           setValues((v) => ({ ...v, email: auth.currentUser?.email || '' }));
+
           setSavingField(null);
           return;
         }
@@ -481,6 +484,7 @@ export function Account() {
         try {
           // Update Firebase Auth and Firestore
           await updateEmail(auth.currentUser!, newEmail);
+
           await setDoc(
             doc(db, 'users', uid),
             { profile: { email: newEmail } },
@@ -495,6 +499,7 @@ export function Account() {
           message.error(msg);
           animate('email', 'error');
           setValues((v) => ({ ...v, email: original.email }));
+
         }
 
         setSavingField(null);
