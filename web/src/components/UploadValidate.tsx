@@ -7,6 +7,8 @@ import {
   Suspense,
   type CSSProperties,
 } from "react";
+import type { editor as MonacoEditorAPI } from "monaco-editor";
+import type { OnMount, Monaco } from "@monaco-editor/react";
 import { useDropzone } from "react-dropzone";
 import { parseUpload } from "../lib/api";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -41,7 +43,7 @@ async function retry<T>(fn: () => Promise<T>, attempts = 3, delayMs = 500): Prom
   for (let i = 0; i < attempts; i++) {
     try {
       return await fn();
-    } catch (e) {
+    } catch (e: unknown) {
       lastErr = e;
       await new Promise(res => setTimeout(res, delayMs * 2 ** i));
     }
@@ -65,10 +67,10 @@ export function UploadValidate() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [filename, setFilename] = useState('out.yaml');
-  const blurTimer = useRef<number>();
+  const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const editorRef = useRef<any>(null);
-  const monacoRef = useRef<any>(null);
+  const editorRef = useRef<MonacoEditorAPI.IStandaloneCodeEditor | null>(null);
+  const monacoRef = useRef<Monaco | null>(null);
 
   const onDrop = useCallback((files: File[]) => {
     const file = files[0];
@@ -89,7 +91,7 @@ export function UploadValidate() {
     if (match) setFilename(match[1] + '.yaml');
   }, [xmlText]);
 
-  const handleValidate = async () => {
+  const handleValidate = useCallback(async () => {
     // TEMPORARILY allow anonymous parsing until we wire up real auth:
     const user = auth.currentUser;
     const uid = user?.uid ?? "anonymous";
@@ -118,7 +120,7 @@ export function UploadValidate() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [xmlText, filename]);
 
   const validateXmlSyntax = useCallback((value: string) => {
     if (!editorRef.current || !monacoRef.current) return;
@@ -143,14 +145,15 @@ export function UploadValidate() {
       } else {
         monaco.editor.setModelMarkers(model, 'owner', []);
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
       monaco.editor.setModelMarkers(model, 'owner', [
         {
           startLineNumber: 1,
           startColumn: 1,
           endLineNumber: 1,
           endColumn: 1,
-          message: e.message,
+          message: msg,
           severity: monaco.MarkerSeverity.Error,
         },
       ]);
@@ -161,7 +164,7 @@ export function UploadValidate() {
     validateXmlSyntax(xmlText);
   }, [xmlText, validateXmlSyntax]);
 
-  const handleEditorMount = useCallback((editor: any, monaco: any) => {
+  const handleEditorMount: OnMount = useCallback((editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
     editor.onDidBlurEditorWidget(() => {
@@ -266,7 +269,7 @@ export function UploadValidate() {
                   height="40vh"
                   language="xml"
                   value={xmlText}
-                  onChange={(val) => {
+                  onChange={(val: string | undefined) => {
                     const text = val ?? '';
                     setXmlText(text);
                     validateXmlSyntax(text);
