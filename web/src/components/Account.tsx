@@ -15,6 +15,7 @@ import {
   Progress,
   Tag,
 } from 'antd';
+import type { InputRef } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '../lib/firebase';
@@ -53,6 +54,8 @@ import Cropper, { type Area } from 'react-easy-crop';
 import 'react-easy-crop/react-easy-crop.css';
 import imageCompression from 'browser-image-compression';
 import { saveAs } from 'file-saver';
+import { toast } from '../lib/toast';
+import { shake } from '../lib/animations';
 
 const LoadingSpinner = Spin;
 
@@ -132,6 +135,11 @@ export function Account() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
+  // local email value and saving state
+  const [email, setEmail] = useState('');
+  const [isEmailSaving, setIsEmailSaving] = useState(false);
+  const emailInputRef = useRef<InputRef>(null);
+
   const [values, setValues] = useState({
     displayName: '',
     bio: '',
@@ -193,6 +201,7 @@ export function Account() {
         };
         setValues(merged);
         setOriginal(merged);
+        setEmail(merged.email);
         setUsername(uname);
         setPreviewURL(data.photoURL || auth.currentUser?.photoURL || null);
       } catch (err) {
@@ -522,6 +531,43 @@ export function Account() {
     }
   };
 
+  // handle updating the user's email on input blur
+  const handleEmailBlur = async (
+    e: React.FocusEvent<HTMLInputElement>,
+  ) => {
+    const newEmail = e.target.value.trim();
+    const currentEmail = auth.currentUser?.email;
+    if (newEmail === currentEmail) return;
+    setIsEmailSaving(true);
+    try {
+      // 1) Check if already registered
+      const methods = await fetchSignInMethodsForEmail(auth, newEmail);
+      if (methods.length > 0) {
+        shake(emailInputRef.current?.input || null);
+        toast.error('Email already in use.');
+        // revert input
+        setEmail(currentEmail || '');
+      } else {
+        // 2) Update Firebase Auth
+        await updateEmail(auth.currentUser!, newEmail);
+        // 3) Persist to Firestore
+        await setDoc(
+          doc(db, 'users', auth.currentUser!.uid, 'profile'),
+          { email: newEmail },
+          { merge: true },
+        );
+        toast.success('Email updated.');
+      }
+    } catch (err: unknown) {
+      shake(emailInputRef.current?.input || null);
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(msg || 'Failed to update email.');
+      setEmail(currentEmail || '');
+    } finally {
+      setIsEmailSaving(false);
+    }
+  };
+
   const strength = (pw: string) => {
     let score = 0;
     if (pw.length >= 12) score += 1;
@@ -662,7 +708,7 @@ export function Account() {
         <p>{values.bio}</p>
         <p>{values.pronouns}</p>
         <p>@{username}</p>
-        <p>{values.email}</p>
+        <p>{email}</p>
         </Card>
         <Card title="My Tags" className="glass-card" style={{ marginTop: 16 }}>
           {tags.map(t => (
@@ -837,29 +883,26 @@ export function Account() {
             <Form.Item label="Email" validateStatus={errors.email ? 'error' : ''} help={errors.email || ''}>
               <div style={{ display: 'flex', gap: 8 }}>
                 <Input
+                  ref={emailInputRef}
                   style={{ flex: 1 }}
-                  value={values.email}
-                  onChange={(e) =>
-                    setValues({ ...values, email: e.target.value })
-                  }
-                  disabled={savingField === 'email'}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isEmailSaving}
                   suffix={
-                    savingField === 'email' ? (
-                      <LoadingSpinner size="small" />
-                    ) : undefined
+                    isEmailSaving ? <LoadingSpinner size="small" /> : undefined
                   }
-                  onBlur={() => saveField('email')}
+                  onBlur={handleEmailBlur}
                 />
                 <Button
                   size="small"
                   type="primary"
-                  onClick={() => saveField('email')}
+                  onClick={() => handleEmailBlur({
+                    target: { value: email },
+                  } as React.FocusEvent<HTMLInputElement>)}
                   disabled={
-                    savingField === 'email' ||
-                    values.email === original.email ||
-                    !!errors.email
+                    isEmailSaving || email === original.email || !!errors.email
                   }
-                  loading={savingField === 'email'}
+                  loading={isEmailSaving}
                 >
                   Save
                 </Button>
