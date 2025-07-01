@@ -10,7 +10,7 @@ export function PageAnimator({ children }: { children: ReactNode }) {
   const variants = pageVariants(reduce);
 
   return (
-    <AnimatePresence initial={false} mode="sync">
+    <AnimatePresence initial={false} mode="wait">
       <motion.div
         key={location.pathname}
         variants={variants}

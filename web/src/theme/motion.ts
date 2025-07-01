@@ -1,7 +1,7 @@
 export const motion = {
   easing: [0.4, 0, 0.2, 1] as [number, number, number, number],
   durations: {
-    pageEnter: 0.3,
+    pageEnter: 0.25,
     pageExit: 0.25,
     card: 0.3,
     stagger: 0.05,
@@ -11,20 +11,23 @@ export const motion = {
 export const pageVariants = (reduce: boolean) => ({
   initial: {
     opacity: 0,
-    ...(reduce ? {} : { filter: 'blur(8px)', scale: 0.98 }),
+    x: 32,
+    ...(reduce ? {} : { filter: 'blur(8px)', scale: 0.95 }),
   },
   animate: {
     opacity: 1,
+    x: 0,
     ...(reduce ? {} : { filter: 'blur(0px)', scale: 1 }),
     transition: {
       duration: motion.durations.pageEnter,
       ease: motion.easing,
-      delay: 0.05,
+      delay: motion.durations.pageExit,
     },
   },
   exit: {
     opacity: 0,
-    ...(reduce ? {} : { filter: 'blur(8px)', scale: 0.98 }),
+    x: -32,
+    ...(reduce ? {} : { filter: 'blur(8px)', scale: 0.95 }),
     transition: { duration: motion.durations.pageExit, ease: motion.easing },
   },
 });
