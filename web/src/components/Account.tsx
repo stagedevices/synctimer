@@ -149,7 +149,8 @@ export function Account() {
   const [savingField, setSavingField] = useState<keyof typeof values | null>(null);
 
   const [tags, setTags] = useState<string[]>([]);
-  const [groups, setGroups] = useState<Array<{ id: string; name: string; status: string }>>([]);
+  const [newTag, setNewTag] = useState('');
+  const [groups, setGroups] = useState<Array<{ id: string; name: string }>>([]);
   const [tagModal, setTagModal] = useState(false);
   const [tagSearch, setTagSearch] = useState('');
   const [tagResults, setTagResults] = useState<Array<{ id: string; name: string }>>([]);
@@ -236,12 +237,12 @@ export function Account() {
     const ref = collection(db, 'users', uid, 'groups');
     const unsub = onSnapshot(ref, async snap => {
       const ids = snap.docs.map(d => d.id);
-      const results: Array<{ id: string; name: string; status: string }> = [];
+      const results: Array<{ id: string; name: string }> = [];
       for (const id of ids) {
         const g = await getDoc(doc(db, 'groups', id));
         if (g.exists()) {
-          const data = g.data() as { name: string; status: string };
-          results.push({ id, name: data.name, status: data.status });
+          const data = g.data() as { name: string };
+          results.push({ id, name: data.name });
         }
       }
       setGroups(results);
@@ -513,6 +514,27 @@ export function Account() {
     }
   };
 
+  const createTag = async () => {
+    if (!uid) return;
+    const name = newTag.trim().replace(/^#/, '').toLowerCase();
+    if (!name) return;
+    try {
+      await setDoc(doc(db, 'tags', name), {
+        name,
+        type: 'instrument',
+        createdBy: uid,
+        memberCount: 1,
+      });
+      await setDoc(doc(db, 'tags', name, 'members', uid), {});
+      await setDoc(doc(db, 'users', uid, 'tags', name), { name });
+      setTags(t => [...t, name]);
+      setNewTag('');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      message.error(msg);
+    }
+  };
+
   const leaveTag = async (id: string) => {
     if (!uid) return;
     try {
@@ -558,13 +580,24 @@ export function Account() {
               #{t}
             </Tag>
           ))}
+          <Input
+            size="small"
+            value={newTag}
+            onChange={e => setNewTag(e.target.value)}
+            onPressEnter={createTag}
+            placeholder="Add tag"
+            style={{ width: 120, marginLeft: 8 }}
+          />
+          <Button size="small" onClick={createTag} style={{ marginLeft: 8 }}>
+            Add
+          </Button>
           <Button size="small" onClick={() => setTagModal(true)} style={{ marginLeft: 8 }}>
             + Join
           </Button>
         </Card>
         <Card title="My Ensembles" className="glass-card" style={{ marginTop: 16 }}>
           {groups.map(g => (
-            <Tag key={g.id} color={g.status === 'verified' ? 'green' : g.status === 'pending' ? 'orange' : 'red'} style={{ marginBottom: 4 }}>
+            <Tag key={g.id} style={{ marginBottom: 4 }}>
               {g.name}
             </Tag>
           ))}

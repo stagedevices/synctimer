@@ -1,4 +1,4 @@
-// src/components/MyFiles.tsx
+// src/components/Files.tsx
 import { useEffect, useState } from "react";
 import { Card, List, Spin, Button, Select } from "antd";
 import { DownloadOutlined } from "@ant-design/icons";
@@ -26,11 +26,19 @@ interface FileRecord {
   status: string;
 }
 
-export function MyFiles() {
+interface SharedRecord {
+  id: string;
+  title: string;
+  sharedBy: string;
+  sharedAt: Timestamp;
+}
+
+export function Files() {
   const [user] = useAuthState(auth);
   const uid = user?.uid;
 
   const [files, setFiles] = useState<FileRecord[]>([]);
+  const [shared, setShared] = useState<SharedRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [targets, setTargets] = useState<Array<{ value: string; label: string }>>([]);
 
@@ -52,10 +60,26 @@ export function MyFiles() {
         setLoading(false);
       },
       (err) => {
-        console.error("MyFiles:onSnapshot error", err);
+        console.error("Files:onSnapshot error", err);
         setLoading(false);
       }
     );
+    return unsub;
+  }, [uid]);
+
+  useEffect(() => {
+    if (!uid) return;
+    const q = query(
+      collection(db, "users", uid, "shared"),
+      orderBy("sharedAt", "desc")
+    );
+    const unsub = onSnapshot(q, snap => {
+      const docs = snap.docs.map(d => ({
+        id: d.id,
+        ...(d.data() as Omit<SharedRecord, "id">),
+      }));
+      setShared(docs);
+    });
     return unsub;
   }, [uid]);
 
@@ -100,7 +124,8 @@ export function MyFiles() {
   if (loading) return <Spin />;
 
   return (
-    <Card title="My Files">
+    <>
+    <Card title="My Files" style={{ marginBottom: 16 }}>
       {files.length === 0 ? (
         <div>No files yet — go validate one on the Validate page.</div>
       ) : (
@@ -148,5 +173,24 @@ export function MyFiles() {
         />
       )}
     </Card>
+    <Card title="Shared With Me">
+      {shared.length === 0 ? (
+        <div>No files shared with you yet.</div>
+      ) : (
+        <List
+          itemLayout="horizontal"
+          dataSource={shared}
+          renderItem={f => (
+            <List.Item>
+              <List.Item.Meta
+                title={f.title}
+                description={`Shared by ${f.sharedBy} · ${f.sharedAt.toDate().toLocaleString()}`}
+              />
+            </List.Item>
+          )}
+        />
+      )}
+    </Card>
+    </>
   );
 }
