@@ -497,6 +497,7 @@ export function Account() {
           animate('email', 'error');
           setValues(v => ({ ...v, email: original.email }));
         }
+
         setSavingField(null);
         return;
       } else {
