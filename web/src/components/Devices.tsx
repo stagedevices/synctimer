@@ -174,9 +174,12 @@ export function Devices({ linkToken }: { linkToken?: string }) {
   return (
     <Card title="Linked Devices" className="glass-card" style={{ margin: '2rem', ...glassStyle }}>
       <Row gutter={[16, 16]}>
-        <Col xs={24} style={{ textAlign: 'center' }}>
-          <h2 style={{ marginBottom: '1rem' }}>Scan to Link Device</h2>
-          <canvas ref={canvasRef} />
+        <Col xs={24}>
+          {/* Ensure barcode fits without clipping */}
+          <div className="barcode-wrapper">
+            <h2 style={{ marginBottom: '1rem' }}>Scan to Link Device</h2>
+            <canvas ref={canvasRef} />
+          </div>
         </Col>
       </Row>
       <Row style={{ marginTop: '2rem' }}>
