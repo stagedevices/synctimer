@@ -374,6 +374,15 @@ export function Account() {
       if (snap.exists() && snap.data()?.uid !== uid) {
         return 'This username is already taken.';
       }
+      // fallback to searching users collection for older accounts
+      const existing = await getDocs(
+        query(collection(db, 'users'), where('handle', '==', lower)),
+      );
+      const taken = existing.docs.find(d => d.id !== uid);
+      if (taken) {
+        return 'This username is already taken.';
+
+      }
 
     } else if (field === 'email') {
       const re = /[^@]+@[^.]+\..+/;
@@ -406,7 +415,18 @@ export function Account() {
         if (snap.exists() && snap.data()?.uid !== uid) {
           message.error('Username already taken');
           animate('username', 'error');
-          setValues((v) => ({ ...v, username: original.username }));
+          setValues(v => ({ ...v, username: original.username }));
+          setUsername(original.username);
+          return;
+        }
+        const existing = await getDocs(
+          query(collection(db, 'users'), where('handle', '==', lower)),
+        );
+        if (existing.docs.find(d => d.id !== uid)) {
+          message.error('Username already taken');
+          animate('username', 'error');
+          setValues(v => ({ ...v, username: original.username }));
+
           setUsername(original.username);
           return;
         }

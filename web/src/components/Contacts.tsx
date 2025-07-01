@@ -98,16 +98,13 @@ export function Contacts() {
     if (!uid) return;
     Modal.confirm({
       title: 'Remove contact?',
-      okButtonProps: { danger: true, loading: removing === other.id },
-      onOk: async () => {
+      okButtonProps: { danger: true },
+      onOk: () => {
         setRemoving(other.id);
-        try {
-          await removeFriend(other.id);
-          await refetch();
+        return removeFriend(other.id)
+          .then(refetch)
+          .finally(() => setRemoving(null));
 
-        } finally {
-          setRemoving(null);
-        }
       },
     });
   };
