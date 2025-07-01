@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Button, Drawer, Grid } from 'antd';
 import { signOut } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+
 import {
   MenuOutlined,
   MenuFoldOutlined,
@@ -13,7 +13,9 @@ import {
   TeamOutlined,
   ContactsOutlined,
   TagOutlined,
+  LogoutOutlined,
 } from '@ant-design/icons';
+import { auth } from '../lib/firebase';
 
 export function Sidebar() {
   const screens = Grid.useBreakpoint();
@@ -61,15 +63,17 @@ export function Sidebar() {
       </nav>
       {/* Sign Out button pinned to bottom */}
       <Button
-        className="signout-btn"
-        type="default"
-        danger
+        className="sidebar-link signout-btn"
+        type="text"
+        icon={<LogoutOutlined />}
+
         onClick={async () => {
           await signOut(auth);
           navigate('/account');
         }}
       >
-        Sign Out
+        <span className="label">Sign Out</span>
+
       </Button>
     </div>
   );
