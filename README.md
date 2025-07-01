@@ -15,3 +15,9 @@ Once dependencies are installed you can lint and build both packages with:
 pnpm lint
 pnpm build
 ```
+
+To verify the web app build and lint checks, run:
+
+```bash
+cd web && pnpm lint && pnpm build
+```

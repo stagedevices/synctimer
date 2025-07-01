@@ -3,6 +3,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   updateProfile,
+  fetchSignInMethodsForEmail,
   sendPasswordResetEmail,
   browserLocalPersistence,
   browserSessionPersistence,
@@ -14,6 +15,7 @@ import {
   query,
   where,
   getDocs,
+  getDoc,
   doc,
   setDoc,
   serverTimestamp,
@@ -58,6 +60,16 @@ export async function signUp(
   password: string,
 ): Promise<User> {
   const h = handle.toLowerCase();
+  if (await emailInUse(email)) {
+    throw new Error('Email already in use');
+  }
+  // Check the usernames mapping first for existing entries
+  const usernameRef = doc(db, 'usernames', h);
+  const usernameSnap = await getDoc(usernameRef);
+  if (usernameSnap.exists()) {
+    throw new Error('Handle already taken');
+  }
+  // Fallback to searching users collection for legacy entries
   const existing = await getDocs(
     query(collection(db, 'users'), where('handle', '==', h)),
   );
@@ -75,7 +87,22 @@ export async function signUp(
 
     createdAt: serverTimestamp(),
   });
+  // record the handle in the usernames map for quick lookup
+  await setDoc(usernameRef, { uid: cred.user.uid });
   return cred.user;
+}
+
+/**
+ * Check if an email address is already used by another account.
+ * Returns true when another user has the email.
+ */
+export async function emailInUse(email: string, uid?: string): Promise<boolean> {
+  const methods = await fetchSignInMethodsForEmail(auth, email);
+  if (methods.length > 0 && email !== auth.currentUser?.email) return true;
+  const snap = await getDocs(
+    query(collection(db, 'users'), where('email', '==', email)),
+  );
+  return snap.docs.some(d => d.id !== uid);
 }
 
 /**
