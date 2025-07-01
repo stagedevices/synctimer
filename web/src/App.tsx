@@ -23,6 +23,8 @@ import { BellOutlined } from '@ant-design/icons';
 import { useIncomingCount } from './hooks/useFriends';
 import { motion } from 'framer-motion';
 import { PageAnimator } from './components/PageAnimator';
+import { Sidebar } from './components/Sidebar';
+import { MainContent } from './components/MainContent';
 
 
 export function App() {
@@ -32,46 +34,49 @@ export function App() {
 
   return (
     <BrowserRouter>
-      {user && (
-        <nav className="glass-nav">
-          {[
-            ['/account', 'Account'],
-            ['/parse', 'Validate XML'],
-            ['/files', 'Files'],
-            ['/groups', 'Groups'],
-            ['/contacts', 'Contacts'],
-          ].map(([to, label]) => (
-            <NavLink key={to} to={to} className="nav-link">
-              {({ isActive }) => (
-                <span className="relative">
-                  {label}
-                  {isActive && (
-                    <motion.div layoutId="nav-highlight" className="nav-highlight" />
+      <div className="app-layout">
+        <Sidebar />
+        <MainContent>
+          {user && (
+            <nav className="glass-nav">
+              {[
+                ['/account', 'Account'],
+                ['/parse', 'Validate XML'],
+                ['/files', 'Files'],
+                ['/groups', 'Groups'],
+                ['/contacts', 'Contacts'],
+              ].map(([to, label]) => (
+                <NavLink key={to} to={to} className="nav-link">
+                  {({ isActive }) => (
+                    <span className="relative">
+                      {label}
+                      {isActive && (
+                        <motion.div layoutId="nav-highlight" className="nav-highlight" />
+                      )}
+                    </span>
                   )}
-                </span>
-              )}
-            </NavLink>
-          ))}
-          <Badge count={incoming} offset={[0, 0]}>
-            <BellOutlined style={{ fontSize: 18, marginLeft: 8 }} />
-          </Badge>
-          <NavLink to="/devices" className="nav-link">
-            {({ isActive }) => (
-              <span className="relative">
-                Link Phone
-                {isActive && (
-                  <motion.div layoutId="nav-highlight" className="nav-highlight" />
+                </NavLink>
+              ))}
+              <Badge count={incoming} offset={[0, 0]}>
+                <BellOutlined style={{ fontSize: 18, marginLeft: 8 }} />
+              </Badge>
+              <NavLink to="/devices" className="nav-link">
+                {({ isActive }) => (
+                  <span className="relative">
+                    Link Phone
+                    {isActive && (
+                      <motion.div layoutId="nav-highlight" className="nav-highlight" />
+                    )}
+                  </span>
                 )}
-              </span>
-            )}
-          </NavLink>
-          <Button type="link" onClick={() => signOut(auth)}>
-            Sign Out
-          </Button>
-        </nav>
-      )}
-      <PageAnimator>
-        <Routes>
+              </NavLink>
+              <Button type="link" onClick={() => signOut(auth)}>
+                Sign Out
+              </Button>
+            </nav>
+          )}
+          <PageAnimator>
+            <Routes>
           <Route path="/" element={<AccountLanding />} />
           <Route
             path="/account"
@@ -127,6 +132,8 @@ export function App() {
           />
         </Routes>
       </PageAnimator>
+        </MainContent>
+      </div>
     </BrowserRouter>
   );
 }
