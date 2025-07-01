@@ -19,6 +19,7 @@ import {
   deleteDoc,
 } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
+import { removeFriend } from '../lib/friends';
 import { useFriends } from '../hooks/useFriends';
 import { useUserSearch } from '../hooks/useUserSearch';
 import type { UserInfo } from '../hooks/useFriends';
@@ -26,12 +27,13 @@ import type { UserInfo } from '../hooks/useFriends';
 export function Contacts() {
   const uid = auth.currentUser?.uid;
   const reduce = useReducedMotion() ?? false;
-  const { contacts, incoming, outgoing, loading } = useFriends();
+  const { contacts, incoming, outgoing, loading, refetch } = useFriends();
 
   const [search, setSearch] = useState('');
   const results = useUserSearch(search);
   const [selected, setSelected] = useState<UserInfo | null>(null);
   const [adding, setAdding] = useState(false);
+  const [removing, setRemoving] = useState<string | null>(null);
 
   const sendRequest = async () => {
     if (!uid || !selected) return;
@@ -96,14 +98,14 @@ export function Contacts() {
     if (!uid) return;
     Modal.confirm({
       title: 'Remove contact?',
-      okButtonProps: { danger: true },
+      okButtonProps: { danger: true, loading: removing === other.id },
       onOk: async () => {
+        setRemoving(other.id);
         try {
-          await deleteDoc(doc(db, 'users', uid, 'contacts', other.id));
-          await deleteDoc(doc(db, 'users', other.id, 'contacts', uid));
-          message.success('Removed');
-        } catch (e: unknown) {
-          message.error((e as Error).message || String(e));
+          await removeFriend(other.id);
+          await refetch();
+        } finally {
+          setRemoving(null);
         }
       },
     });
@@ -133,6 +135,7 @@ export function Contacts() {
                         key="del"
                         danger
                         icon={<DeleteOutlined />}
+                        disabled={removing === c.id}
                         onClick={() => remove(c)}
                       >
                         Remove
