@@ -1,12 +1,16 @@
 import { doc, deleteDoc } from 'firebase/firestore';
-import { db } from './firebase';
+import { auth, db } from './firebase';
+
 import { message } from 'antd';
 
 /**
  * Remove a friend connection for both users.
  * Deletes the docs in each user's contacts subcollection.
  */
-export async function removeFriend(currentUid: string, friendUid: string): Promise<void> {
+export async function removeFriend(friendUid: string): Promise<void> {
+  const currentUid = auth.currentUser?.uid;
+  if (!currentUid) throw new Error('Not authenticated');
+
   try {
     await Promise.all([
       deleteDoc(doc(db, 'users', currentUid, 'contacts', friendUid)),

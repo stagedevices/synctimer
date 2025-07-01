@@ -27,7 +27,7 @@ import type { UserInfo } from '../hooks/useFriends';
 export function Contacts() {
   const uid = auth.currentUser?.uid;
   const reduce = useReducedMotion() ?? false;
-  const { contacts, incoming, outgoing, loading } = useFriends();
+  const { contacts, incoming, outgoing, loading, refetch } = useFriends();
 
   const [search, setSearch] = useState('');
   const results = useUserSearch(search);
@@ -102,7 +102,9 @@ export function Contacts() {
       onOk: async () => {
         setRemoving(other.id);
         try {
-          await removeFriend(uid, other.id);
+          await removeFriend(other.id);
+          await refetch();
+
         } finally {
           setRemoving(null);
         }
