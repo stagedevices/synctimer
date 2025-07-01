@@ -1,139 +1,251 @@
 import { useState } from 'react';
 import {
   Card,
+  List,
+  Tabs,
   Button,
   Modal,
   Input,
-  message,
-  Spin,
-  Alert,
-  Row,
-  Col,
   Avatar,
-  Tag,
+  Badge,
+  message,
 } from 'antd';
-import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
-import { usePeers } from '../hooks/usePeers';
-import type { Peer } from '../hooks/usePeers';
-import { sendPeerRequest, removePeer } from '../lib/api';
-import { auth } from '../lib/firebase';
-import { CSSTransition, TransitionGroup } from 'react-transition-group';
+import { DeleteOutlined } from '@ant-design/icons';
+import {
+  doc,
+  setDoc,
+  deleteDoc,
+} from 'firebase/firestore';
+import { auth, db } from '../lib/firebase';
+import { useFriends } from '../hooks/useFriends';
+import { useUserSearch } from '../hooks/useUserSearch';
+import type { UserInfo } from '../hooks/useFriends';
 
 export function Contacts() {
-  const { peers, loading, error } = usePeers();
   const uid = auth.currentUser?.uid;
+  const { contacts, incoming, outgoing, loading } = useFriends();
 
-  const [modalOpen, setModalOpen] = useState(false);
-  const [email, setEmail] = useState('');
-  const [sending, setSending] = useState(false);
+  const [search, setSearch] = useState('');
+  const results = useUserSearch(search);
+  const [selected, setSelected] = useState<UserInfo | null>(null);
+  const [adding, setAdding] = useState(false);
 
   const sendRequest = async () => {
-    if (!uid || !email) return;
-    setSending(true);
+    if (!uid || !selected) return;
+    if (selected.id === uid) {
+      message.error("Can't add yourself");
+      return;
+    }
+    if (contacts.some(c => c.id === selected.id) ||
+        outgoing.some(o => o.id === selected.id) ||
+        incoming.some(i => i.id === selected.id)) {
+      message.error('Already connected or pending');
+      return;
+    }
+    setAdding(true);
     try {
-      await sendPeerRequest(email, uid);
+      await setDoc(doc(db, 'users', uid, 'outgoingRequests', selected.id), {});
+      await setDoc(doc(db, 'users', selected.id, 'incomingRequests', uid), {});
       message.success('Request sent');
-      setModalOpen(false);
-      setEmail('');
+      setSelected(null);
+      setSearch('');
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      message.error(msg);
+      message.error((e as Error).message || String(e));
     } finally {
-      setSending(false);
+      setAdding(false);
     }
   };
 
-  const confirmRemove = (peer: Peer) => {
+  const accept = async (other: UserInfo) => {
+    if (!uid) return;
+    try {
+      await setDoc(doc(db, 'users', uid, 'contacts', other.id), {});
+      await setDoc(doc(db, 'users', other.id, 'contacts', uid), {});
+      await deleteDoc(doc(db, 'users', uid, 'incomingRequests', other.id));
+      await deleteDoc(doc(db, 'users', other.id, 'outgoingRequests', uid));
+      message.success('Friend added');
+    } catch (e: unknown) {
+      message.error((e as Error).message || String(e));
+    }
+  };
+
+  const decline = async (other: UserInfo) => {
+    if (!uid) return;
+    try {
+      await deleteDoc(doc(db, 'users', uid, 'incomingRequests', other.id));
+      await deleteDoc(doc(db, 'users', other.id, 'outgoingRequests', uid));
+    } catch (e: unknown) {
+      message.error((e as Error).message || String(e));
+    }
+  };
+
+  const cancel = async (other: UserInfo) => {
+    if (!uid) return;
+    try {
+      await deleteDoc(doc(db, 'users', uid, 'outgoingRequests', other.id));
+      await deleteDoc(doc(db, 'users', other.id, 'incomingRequests', uid));
+    } catch (e: unknown) {
+      message.error((e as Error).message || String(e));
+    }
+  };
+
+  const remove = async (other: UserInfo) => {
+    if (!uid) return;
     Modal.confirm({
-      title: 'Remove peer?',
-      content: `Are you sure you want to remove ${peer.displayName || peer.email}?`,
-      okText: 'Remove',
+      title: 'Remove contact?',
       okButtonProps: { danger: true },
-      onOk: () => doRemove(peer.id),
+      onOk: async () => {
+        try {
+          await deleteDoc(doc(db, 'users', uid, 'contacts', other.id));
+          await deleteDoc(doc(db, 'users', other.id, 'contacts', uid));
+          message.success('Removed');
+        } catch (e: unknown) {
+          message.error((e as Error).message || String(e));
+        }
+      },
     });
   };
 
-  const doRemove = async (peerUid: string) => {
-    if (!uid) return;
-    try {
-      await removePeer(peerUid, uid);
-      message.success('Peer removed');
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      message.error(msg);
-    }
-  };
-
-  const glassStyle = {
-    borderRadius: '1.5rem',
-  } as const;
+  const tabItems = [
+    {
+      key: 'contacts',
+      label: 'Contacts',
+      children: (
+        <List
+          loading={loading}
+          dataSource={contacts}
+          renderItem={c => (
+            <List.Item>
+              <Card
+                className="glass-card"
+                style={{ width: '100%' }}
+                actions={[
+                  <Button
+                    key="del"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() => remove(c)}
+                  >
+                    Remove
+                  </Button>,
+                ]}
+              >
+                <Card.Meta
+                  avatar={<Avatar src={c.photoURL} />}
+                  title={c.displayName || c.email}
+                  description={`@${c.handle || ''}`}
+                />
+              </Card>
+            </List.Item>
+          )}
+        />
+      ),
+    },
+    {
+      key: 'outgoing',
+      label: 'Requests Sent',
+      children: (
+        <List
+          dataSource={outgoing}
+          renderItem={o => (
+            <List.Item>
+              <Card
+                className="glass-card"
+                style={{ width: '100%' }}
+                actions={[
+                  <Button key="cancel" onClick={() => cancel(o)}>
+                    Cancel Request
+                  </Button>,
+                ]}
+              >
+                <Card.Meta
+                  avatar={<Avatar src={o.photoURL} />}
+                  title={o.displayName || o.email}
+                  description={`@${o.handle || ''}`}
+                />
+              </Card>
+            </List.Item>
+          )}
+        />
+      ),
+    },
+    {
+      key: 'incoming',
+      label: (
+        <span>
+          Requests Received{' '}
+          <Badge count={incoming.length} style={{ backgroundColor: '#70c73c' }} />
+        </span>
+      ),
+      children: (
+        <List
+          dataSource={incoming}
+          renderItem={i => (
+            <List.Item>
+              <Card
+                className="glass-card"
+                style={{ width: '100%' }}
+                actions={[
+                  <Button
+                    key="accept"
+                    type="primary"
+                    onClick={() => accept(i)}
+                  >
+                    Accept
+                  </Button>,
+                  <Button key="decline" danger onClick={() => decline(i)}>
+                    Decline
+                  </Button>,
+                ]}
+              >
+                <Card.Meta
+                  avatar={<Avatar src={i.photoURL} />}
+                  title={i.displayName || i.email}
+                  description={`@${i.handle || ''}`}
+                />
+              </Card>
+            </List.Item>
+          )}
+        />
+      ),
+    },
+  ];
 
   return (
-    <Card
-      title="Peers"
-      className="glass-card"
-      style={{ ...glassStyle, margin: '2rem' }}
-      extra={
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
-          Add Peer
-        </Button>
-      }
-    >
-        {loading ? (
-          <Spin />
-      ) : error ? (
-        <Alert type="error" message={error.message} />
-      ) : peers.length === 0 ? (
-        <div>No peers yet.</div>
-      ) : (
-        <Row gutter={[16, 16]}>
-          <TransitionGroup component={null}>
-            {peers.map((p) => (
-              <CSSTransition key={p.id} timeout={250} classNames="fade">
-                <Col xs={24} sm={12} md={8} lg={6}>
-                  <Card
-                    className="glass-card"
-                    style={glassStyle}
-                    actions={[<DeleteOutlined key="del" onClick={() => confirmRemove(p)} />]}
-                  >
-                    <Card.Meta
-                      avatar={<Avatar src={p.photoURL} />}
-                      title={p.displayName || p.email}
-                      description={
-                        <>
-                          <div>{p.email}</div>
-                          <div>{p.linkedAt?.toDate().toLocaleDateString()}</div>
-                        </>
-                      }
-                    />
-                    <div style={{ marginTop: 8 }}>
-                      {p.tags?.map((t) => (
-                        <Tag key={t}>{t}</Tag>
-                      ))}
-                    </div>
-                  </Card>
-                </Col>
-              </CSSTransition>
-            ))}
-          </TransitionGroup>
-        </Row>
-      )}
-
-      <Modal
-        title="Add Peer"
-        open={modalOpen}
-        onOk={sendRequest}
-        okText="Send Request"
-        confirmLoading={sending}
-        onCancel={() => setModalOpen(false)}
-      >
+    <Card className="glass-card" style={{ margin: '2rem' }} title="Contacts">
+      <div style={{ marginBottom: 16 }}>
         <Input
-          placeholder="Peer email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          onPressEnter={sendRequest}
-          autoFocus
+          placeholder="Search users..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
         />
+        {search && results.length > 0 && (
+          <List
+            style={{ marginTop: 8, maxHeight: 200, overflow: 'auto' }}
+            dataSource={results}
+            bordered
+            renderItem={u => (
+              <List.Item onClick={() => setSelected(u)} style={{ cursor: 'pointer' }}>
+                <List.Item.Meta
+                  avatar={<Avatar src={u.photoURL} />}
+                  title={u.displayName || u.email}
+                  description={`@${u.handle || ''}`}
+                />
+              </List.Item>
+            )}
+          />
+        )}
+      </div>
+      <Tabs items={tabItems} />
+      <Modal
+        title={selected?.displayName || selected?.email}
+        open={!!selected}
+        onOk={sendRequest}
+        okText="Add Friend"
+        confirmLoading={adding}
+        onCancel={() => setSelected(null)}
+      >
+        <p>@{selected?.handle}</p>
       </Modal>
     </Card>
   );
