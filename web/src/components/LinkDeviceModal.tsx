@@ -44,6 +44,7 @@ export function LinkDeviceModal() {
         <Button
           className="link-device-btn"
           aria-label="Link Device"
+
           type="primary"
           shape="circle"
           icon={<MobileOutlined />}
@@ -55,12 +56,14 @@ export function LinkDeviceModal() {
         className="glass-modal"
         open={open}
         title={<span id="link-device-title">Link Device</span>}
+
         onCancel={() => setOpen(false)}
         footer={null}
         destroyOnClose={false}
         maskStyle={{ backdropFilter: 'blur(8px)', backgroundColor: 'rgba(255,255,255,0.125)' }}
         bodyStyle={{ padding: 0 }}
         closeIcon={<CloseOutlined aria-label="Close" />}
+
         aria-labelledby="link-device-title"
         aria-describedby="link-device-desc"
         transitionName="fade-scale"
