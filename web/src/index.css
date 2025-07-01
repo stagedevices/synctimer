@@ -254,6 +254,11 @@ button:focus-visible {
   overflow-x: hidden;
 }
 
+.sidebar-content {
+  position: relative;
+  flex: 1;
+}
+
 .sidebar-link {
   display: flex;
   align-items: center;
@@ -327,6 +332,38 @@ button:focus-visible {
 .ant-modal-close:focus-visible,
 .link-device-btn:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
+}
+
+.link-device-btn {
+  background: #000;
+  color: #fff;
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  border-color: #000;
+}
+.link-device-btn:hover {
+  color: #fff;
+  background: #000;
+  box-shadow: 0 0 0 2px #000;
+}
+
+.signout-btn {
+  position: absolute;
+  bottom: 1rem;
+  width: calc(100% - 2rem);
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 0.5rem;
+  transition: background-color 0.2s var(--ease);
+}
+.signout-btn:hover {
+  background: rgba(255, 255, 255, 0.55);
+}
+body[data-theme='dark'] .signout-btn {
+  background: rgba(0, 0, 0, 0.4);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
 }
 
 
