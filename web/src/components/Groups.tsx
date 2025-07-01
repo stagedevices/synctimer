@@ -90,7 +90,8 @@ export function Groups() {
 
   if (!uid || loading) return <Spin />;
   return (
-    <Card title="My Groups" className="glass-card" style={{ margin: '2rem' }}>
+    <div className="page-content">
+      <Card title="My Groups" className="glass-card" style={{ margin: '2rem' }}>
       <Button onClick={() => setModalOpen(true)} style={{ marginBottom: 16 }}>
         Create Group
       </Button>
@@ -146,6 +147,7 @@ export function Groups() {
           ]}
         />
       </Modal>
-    </Card>
+      </Card>
+    </div>
   );
 }

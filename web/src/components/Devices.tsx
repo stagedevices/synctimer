@@ -167,7 +167,8 @@ export function Devices() {
   const glassStyle = { borderRadius: '1.5rem' } as const;
 
   return (
-    <Card title="Linked Devices" className="glass-card" style={{ margin: '2rem', ...glassStyle }}>
+    <div className="page-content">
+      <Card title="Linked Devices" className="glass-card" style={{ margin: '2rem', ...glassStyle }}>
       <Row gutter={[16, 16]}>
         <Col xs={24} style={{ textAlign: 'center' }}>
           <h2 style={{ marginBottom: '1rem' }}>Scan to Link Device</h2>
@@ -241,7 +242,8 @@ export function Devices() {
           </Spin>
         </Col>
       </Row>
-    </Card>
+      </Card>
+    </div>
   );
 }
 

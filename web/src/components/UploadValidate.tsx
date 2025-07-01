@@ -140,7 +140,7 @@ export function UploadValidate() {
   };
 
   return (
-    <div style={{ padding: '2rem' }}>
+    <div className="page-content" style={{ padding: '2rem' }}>
       {/* Header with theme toggle */}
       <Row justify="space-between" align="middle" style={{ marginBottom: '1rem' }}>
         <h1 style={{ fontSize: '4.6rem', margin: 0, fontFamily: 'system-ui' }}>SyncTimer</h1>

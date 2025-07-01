@@ -251,7 +251,8 @@ export function Contacts() {
   ];
 
   return (
-    <Card className="glass-card" style={{ margin: '2rem' }} title="Contacts">
+    <div className="page-content">
+      <Card className="glass-card" style={{ margin: '2rem' }} title="Contacts">
       <div style={{ marginBottom: 16 }}>
         <Input
           placeholder="Search users..."
@@ -286,6 +287,7 @@ export function Contacts() {
       >
         <p>@{selected?.handle}</p>
       </Modal>
-    </Card>
+      </Card>
+    </div>
   );
 }
