@@ -104,6 +104,7 @@ export function Contacts() {
         try {
           await removeFriend(other.id);
           await refetch();
+
         } finally {
           setRemoving(null);
         }
