@@ -158,11 +158,7 @@ export function Account() {
   const [savingField, setSavingField] = useState<keyof typeof values | null>(null);
 
   const [tags, setTags] = useState<string[]>([]);
-  const [newTag, setNewTag] = useState('');
   const [groups, setGroups] = useState<Array<{ id: string; name: string }>>([]);
-  const [tagModal, setTagModal] = useState(false);
-  const [tagSearch, setTagSearch] = useState('');
-  const [tagResults, setTagResults] = useState<Array<{ id: string; name: string }>>([]);
 
   const refs: Record<keyof typeof values, React.RefObject<HTMLDivElement | null>> = {
     displayName: useRef<HTMLDivElement | null>(null),
@@ -214,22 +210,6 @@ export function Account() {
     })();
   }, [uid]);
 
-  // fetch tag search results when modal open
-  useEffect(() => {
-    if (!tagModal || !tagSearch) {
-      setTagResults([]);
-      return;
-    }
-    (async () => {
-      const q = query(
-        collection(db, 'tags'),
-        where('name', '>=', tagSearch.toLowerCase()),
-        where('name', '<=', tagSearch.toLowerCase() + '\uf8ff')
-      );
-      const snap = await getDocs(q);
-      setTagResults(snap.docs.map(d => ({ id: d.id, name: (d.data() as {name: string}).name })));
-    })();
-  }, [tagModal, tagSearch]);
 
   // subscribe to user's tags
   useEffect(() => {
@@ -642,50 +622,7 @@ export function Account() {
     message.success('Account deleted');
   };
 
-  const joinTag = async (id: string) => {
-    if (!uid) return;
-    const lower = id.toLowerCase();
-    try {
-      await setDoc(doc(db, 'tags', lower), { name: lower }, { merge: true });
-      await setDoc(doc(db, 'tags', lower, 'members', uid), {});
-      await setDoc(doc(db, 'users', uid, 'tags', lower), { name: lower });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      message.error(msg);
-    }
-  };
-
-  const createTag = async () => {
-    if (!uid) return;
-    const name = newTag.trim().replace(/^#/, '').toLowerCase();
-    if (!name) return;
-    try {
-      await setDoc(doc(db, 'tags', name), {
-        name,
-        type: 'instrument',
-        createdBy: uid,
-        memberCount: 1,
-      });
-      await setDoc(doc(db, 'tags', name, 'members', uid), {});
-      await setDoc(doc(db, 'users', uid, 'tags', name), { name });
-      setTags(t => [...t, name]);
-      setNewTag('');
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      message.error(msg);
-    }
-  };
-
-  const leaveTag = async (id: string) => {
-    if (!uid) return;
-    try {
-      await deleteDoc(doc(db, 'tags', id, 'members', uid));
-      await deleteDoc(doc(db, 'users', uid, 'tags', id));
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      message.error(msg);
-    }
-  };
+  // tag membership changes now handled in Explore page
 
   return (
     <>
@@ -712,28 +649,12 @@ export function Account() {
         </Card>
         <Card title="My Tags" className="glass-card" style={{ marginTop: 16 }}>
           {tags.map(t => (
-            <Tag
-              key={t}
-              closable
-              onClose={() => leaveTag(t)}
-              style={{ marginBottom: 4 }}
-            >
+            <Tag key={t} style={{ marginBottom: 4 }}>
               #{t}
             </Tag>
           ))}
-          <Input
-            size="small"
-            value={newTag}
-            onChange={e => setNewTag(e.target.value)}
-            onPressEnter={createTag}
-            placeholder="Add tag"
-            style={{ width: 120, marginLeft: 8 }}
-          />
-          <Button size="small" onClick={createTag} style={{ marginLeft: 8 }}>
-            Add
-          </Button>
-          <Button size="small" onClick={() => setTagModal(true)} style={{ marginLeft: 8 }}>
-            + Join
+          <Button size="small" style={{ marginLeft: 8 }} onClick={() => window.location.href='/explore'}>
+            Manage Tags
           </Button>
         </Card>
         <Card title="My Ensembles" className="glass-card" style={{ marginTop: 16 }}>
@@ -946,26 +867,6 @@ export function Account() {
         </Card>
       </Col>
     </Row>
-    <Modal
-      title="Discover Tags"
-      open={tagModal}
-      onCancel={() => setTagModal(false)}
-      footer={null}
-    >
-      <Input
-        placeholder="Search tags"
-        style={{ marginBottom: 8 }}
-        value={tagSearch}
-        onChange={e => setTagSearch(e.target.value)}
-      />
-      {tagResults.map(t => (
-        <div key={t.id} style={{ marginBottom: 4 }}>
-          <Button type="link" onClick={() => { joinTag(t.id); setTagModal(false); }}>
-            Join #{t.name}
-          </Button>
-        </div>
-      ))}
-    </Modal>
     </>
   );
 }
