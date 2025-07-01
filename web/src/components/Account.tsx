@@ -403,10 +403,13 @@ export function Account() {
   const saveField = async (field: keyof typeof values) => {
     if (!uid || !profileRef) return;
     const value = values[field];
+    setSavingField(field);
     const err = await validateField(field, value);
     setErrors((e) => ({ ...e, [field]: err || undefined }));
-    if (err || value === original[field]) return;
-    setSavingField(field);
+    if (err || value === original[field]) {
+      setSavingField(null);
+      return;
+    }
     try {
       if (field === 'username') {
         const lower = value.toLowerCase();
@@ -442,7 +445,8 @@ export function Account() {
         }
       } else if (field === 'email') {
         // new email handling
-        const newEmail = value;
+        const newEmail = value.trim();
+
         if (newEmail === auth.currentUser?.email) {
           setSavingField(null);
           return;
