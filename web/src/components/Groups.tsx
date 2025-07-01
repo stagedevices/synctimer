@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, List, Button, Spin, Modal, Input, Select } from 'antd';
 import { motion, useReducedMotion } from 'framer-motion';
 import { cardVariants, motion as m } from '../theme/motion';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '../lib/firebase';
+import { toast } from '../lib/toast';
 import {
   collection,
   onSnapshot,
@@ -13,6 +15,7 @@ import {
   deleteDoc,
   query,
   where,
+  serverTimestamp,
 } from 'firebase/firestore';
 
 interface Group {
@@ -21,11 +24,13 @@ interface Group {
   description?: string;
   managerUid: string;
   visibility: 'invite-only' | 'request-to-join';
+  status: 'active' | 'archived';
 }
 
 export function Groups() {
   const [user] = useAuthState(auth);
   const uid = user?.uid;
+  const navigate = useNavigate();
   const reduce = useReducedMotion() ?? false;
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,7 +54,9 @@ export function Groups() {
       }
       const qs = query(collection(db, 'groups'), where('__name__', 'in', ids));
       const unsubInner = onSnapshot(qs, s => {
-        const data = s.docs.map(d => ({ id: d.id, ...(d.data() as Omit<Group,'id'>) }));
+        const data = s.docs
+          .map(d => ({ id: d.id, ...(d.data() as Omit<Group,'id'>) }))
+          .filter(g => g.status !== 'archived');
         setGroups(data);
         setLoading(false);
       });
@@ -70,9 +77,16 @@ export function Groups() {
         managerUid: uid,
         visibility,
         memberCount: 1,
+        status: 'active',
       });
-      await setDoc(doc(db, 'groups', docRef.id, 'members', uid), { role: 'manager' });
-      await setDoc(doc(db, 'users', uid, 'groups', docRef.id), { role: 'manager' });
+      await setDoc(doc(db, 'groups', docRef.id, 'members', uid), {
+        role: 'owner',
+        joinedAt: serverTimestamp(),
+      });
+      await setDoc(doc(db, 'users', uid, 'groups', docRef.id), {
+        role: 'owner',
+        joinedAt: serverTimestamp(),
+      });
       setModalOpen(false);
       setValues({ name: '', description: '', visibility: 'invite-only' });
     } catch (e: unknown) {
@@ -84,6 +98,11 @@ export function Groups() {
 
   const leaveGroup = async (id: string) => {
     if (!uid) return;
+    const g = groups.find(gr => gr.id === id);
+    if (g && g.managerUid === uid) {
+      toast.error('Only owner can delete the group.');
+      return;
+    }
     await deleteDoc(doc(db, 'groups', id, 'members', uid));
     await deleteDoc(doc(db, 'users', uid, 'groups', id));
   };
@@ -109,6 +128,8 @@ export function Groups() {
                     Leave
                   </Button>,
                 ]}
+                onClick={() => navigate(`/groups/${g.id}`)}
+                style={{ cursor: 'pointer' }}
               >
                 <List.Item.Meta title={g.name} description={g.description} />
               </List.Item>
