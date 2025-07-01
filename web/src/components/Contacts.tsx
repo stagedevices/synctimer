@@ -254,7 +254,7 @@ export function Contacts() {
     <Card className="glass-card" style={{ margin: '2rem' }} title="Contacts">
       <div style={{ marginBottom: 16 }}>
         <Input
-          placeholder="Search users..."
+          placeholder="Add users..."
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
