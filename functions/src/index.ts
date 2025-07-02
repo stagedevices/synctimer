@@ -1,4 +1,9 @@
-import * as functions from "firebase-functions/v1";
+import { onRequest, Request } from "firebase-functions/v2/https";
+import { onSchedule } from "firebase-functions/v2/scheduler";
+import {
+  onDocumentWritten,
+  onDocumentCreated,
+} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import { fetch } from "undici";
 import cors from "cors";
@@ -63,13 +68,13 @@ export async function storeParts(
   }
 }
 
-function getUidFromHeader(req: functions.https.Request): string | null {
+function getUidFromHeader(req: Request): string | null {
   const auth = req.header("Authorization") || "";
   const m = auth.match(/^Bearer (.+)$/);
   return m ? m[1] : null;
 }
 
-export const parseUpload = functions.https.onRequest((req, res) => {
+export const parseUpload = onRequest((req, res) => {
   corsHandler(req, res, async () => {
     const uid = getUidFromHeader(req);
     const xml = req.rawBody ?? Buffer.from("");
@@ -124,7 +129,7 @@ export const parseUpload = functions.https.onRequest((req, res) => {
   });
 });
 
-export const linkDevice = functions.https.onRequest((req, res) => {
+export const linkDevice = onRequest((req, res) => {
   corsHandler(req, res, async () => {
     const uid = getUidFromHeader(req);
     if (!uid) {
@@ -152,7 +157,7 @@ export const linkDevice = functions.https.onRequest((req, res) => {
   });
 });
 
-export const getLinkToken = functions.https.onRequest((req, res) => {
+export const getLinkToken = onRequest((req, res) => {
   corsHandler(req, res, async () => {
     const uid = getUidFromHeader(req);
     if (!uid) {
@@ -177,59 +182,64 @@ export const getLinkToken = functions.https.onRequest((req, res) => {
 });
 
 // 1️⃣ Soft-delete flag on group documents
-export const purgeDeletedGroups =
-  functions.pubsub.schedule("every 24 hours").onRun(async () => {
-    const cutoff = Date.now() - 15 * 24 * 60 * 60 * 1000;
-    const snap = await db
-      .collection("groups")
-      .where("isDeleted", "==", true)
-      .where(
-        "deletedAt",
-        "<=",
-        admin.firestore.Timestamp.fromMillis(cutoff),
-      )
-      .get();
-    await Promise.all(snap.docs.map((d) => d.ref.delete()));
-  });
+export const purgeDeletedGroups = onSchedule("every 24 hours", async () => {
+  const cutoff = Date.now() - 15 * 24 * 60 * 60 * 1000;
+  const snap = await db
+    .collection("groups")
+    .where("isDeleted", "==", true)
+    .where(
+      "deletedAt",
+      "<=",
+      admin.firestore.Timestamp.fromMillis(cutoff),
+    )
+    .get();
+  await Promise.all(snap.docs.map((d) => d.ref.delete()));
+});
+
 
 // Firestore trigger: update memberCount for tags
-export const onTagMemberWrite = functions.firestore
-  .document("tags/{tagId}/members/{uid}")
-  .onWrite(async (
-    change: functions.Change<admin.firestore.DocumentData>,
-    context: functions.EventContext,
-  ) => {
-    const tagId = context.params.tagId;
-    const delta = change.after.exists ? (change.before.exists ? 0 : 1) : -1;
+export const onTagMemberWrite = onDocumentWritten(
+  "tags/{tagId}/members/{uid}",
+  async (event) => {
+    const change = event.data;
+    const tagId = event.params.tagId;
+    const was = change?.before.exists ?? false;
+    const now = change?.after.exists ?? false;
+    const delta = now ? (was ? 0 : 1) : -1;
     if (delta === 0) return null;
     await db.doc(`tags/${tagId}`).update({
       memberCount: FieldValue.increment(delta),
     });
     return null;
-  });
+  },
+);
 
 // Firestore trigger: update memberCount for groups
-export const onGroupMemberWrite = functions.firestore
-  .document("groups/{groupId}/members/{uid}")
-  .onWrite(async (
-    change: functions.Change<admin.firestore.DocumentData>,
-    context: functions.EventContext,
-  ) => {
-    const groupId = context.params.groupId;
-    const delta = change.after.exists ? (change.before.exists ? 0 : 1) : -1;
+export const onGroupMemberWrite = onDocumentWritten(
+  "groups/{groupId}/members/{uid}",
+  async (event) => {
+    const change = event.data;
+    const groupId = event.params.groupId;
+    const was = change?.before.exists ?? false;
+    const now = change?.after.exists ?? false;
+    const delta = now ? (was ? 0 : 1) : -1;
     if (delta === 0) return null;
     await db.doc(`groups/${groupId}`).update({
       memberCount: FieldValue.increment(delta),
     });
     return null;
-  });
+  },
+);
 
 // Firestore trigger: send notifications on new assignments
-export const onAssignmentCreate = functions.firestore
-  .document("assignments/{assignmentId}")
-  .onCreate(async (snap, context) => {
+export const onAssignmentCreate = onDocumentCreated(
+  "assignments/{assignmentId}",
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return null;
     const data = snap.data() as admin.firestore.DocumentData;
-    const id = context.params.assignmentId;
+    const id = event.params.assignmentId;
+
     for (const rec of data.recipients || []) {
       if (rec.type === "user") {
         await db
@@ -287,5 +297,6 @@ export const onAssignmentCreate = functions.firestore
       }
     }
     return null;
-  });
+  },
+);
 

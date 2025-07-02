@@ -1,4 +1,9 @@
-import * as functions from "firebase-functions/v1";
+import {
+  onCall,
+  onRequest,
+  HttpsError,
+  CallableRequest,
+} from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import { randomUUID } from "crypto";
 
@@ -11,22 +16,25 @@ const auth = admin.auth();
  * Creates a verification entry in Firestore which triggers the
  * Trigger Email extension to send a verification email.
  */
-export const initiateEmailChange = functions.https.onCall(
+export const initiateEmailChange = onCall(
   async (
-    data: { newEmail?: string; currentPassword?: string },
-    context: functions.https.CallableContext,
+    request: CallableRequest<{
+      newEmail?: string;
+      currentPassword?: string;
+    }>,
   ) => {
-    const uid = context.auth?.uid;
-    const { newEmail } = data as { newEmail?: string };
+    const uid = request.auth?.uid;
+    const { newEmail } = request.data as { newEmail?: string };
+
 
     if (!uid) {
-      throw new functions.https.HttpsError(
+      throw new HttpsError(
         "unauthenticated",
         "Must be signed in."
       );
     }
     if (!newEmail) {
-      throw new functions.https.HttpsError(
+      throw new HttpsError(
         "invalid-argument",
         "newEmail is required."
       );
@@ -54,7 +62,7 @@ export const initiateEmailChange = functions.https.onCall(
  * Called when the user clicks the verification link. Validates the token and
  * updates the user's email if valid.
  */
-export const verifyEmail = functions.https.onRequest(async (req, res) => {
+export const verifyEmail = onRequest(async (req, res) => {
   const { token } = req.query;
   const docRef = db.collection("emailChangeRequests").doc(String(token));
   const doc = await docRef.get();
