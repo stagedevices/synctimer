@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Card,
   Tabs,
@@ -8,6 +8,8 @@ import {
   Avatar,
   Button,
   Input,
+  Switch,
+  Modal,
   Tag,
   Spin,
 } from 'antd';
@@ -19,6 +21,8 @@ import {
   getDocs,
   onSnapshot,
   collection,
+  query,
+  orderBy,
   setDoc,
   deleteDoc,
   addDoc,
@@ -30,6 +34,7 @@ import { auth, db } from '../lib/firebase';
 import { useUserSearch } from '../hooks/useUserSearch';
 import type { UserInfo } from '../hooks/useFriends';
 import { toast } from '../lib/toast';
+import { SendFilesModal } from './SendFilesModal';
 
 interface Group {
   id: string;
@@ -53,6 +58,16 @@ interface MemberInfo {
   tags?: string[];
 }
 
+interface Announcement {
+  id: string;
+  authorUid: string;
+  contentHtml: string;
+  createdAt: Timestamp;
+  authorName?: string;
+  authorPronouns?: string;
+  authorPhotoURL?: string | null;
+}
+
 
 export function GroupDetail() {
   const { groupId } = useParams<{ groupId: string }>();
@@ -68,6 +83,13 @@ export function GroupDetail() {
   const [inviteTerm, setInviteTerm] = useState('');
   const results = useUserSearch(inviteTerm);
   const [inviting, setInviting] = useState<string | null>(null);
+  const [sendOpen, setSendOpen] = useState(false);
+  const [announceContent, setAnnounceContent] = useState('');
+  const [posting, setPosting] = useState(false);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState('members');
+  const [safetyOn, setSafetyOn] = useState(false);
 
   const isOwner = uid && uid === group?.managerUid;
   const myRole = members.find(m => m.id === uid)?.role;
@@ -88,7 +110,7 @@ export function GroupDetail() {
     const unsubMembers = onSnapshot(mRef, async snap => {
       const arr: MemberInfo[] = [];
       for (const d of snap.docs) {
-        const u = await getDoc(doc(db, 'users', d.id));
+        const u = await getDoc(doc(db, 'users', d.id, 'profile'));
         const data = u.exists()
           ? (u.data() as { displayName?: string; photoURL?: string; handle?: string; pronouns?: string })
           : {};
@@ -110,6 +132,40 @@ export function GroupDetail() {
       unsubMembers();
     };
   }, [groupId, navigate]);
+
+  useEffect(() => {
+    if (!groupId) return;
+    const q = query(collection(db, 'groups', groupId, 'announcements'), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, async snap => {
+      const arr: Announcement[] = [];
+      for (const d of snap.docs) {
+        const data = d.data() as Omit<Announcement, 'id' | 'authorName' | 'authorPronouns' | 'authorPhotoURL'>;
+        const profSnap = await getDoc(doc(db, 'users', data.authorUid, 'profile'));
+        const p = profSnap.exists() ? (profSnap.data() as { displayName?: string; pronouns?: string; photoURL?: string }) : {};
+        arr.push({
+          id: d.id,
+          ...data,
+          authorName: p.displayName || 'Unknown',
+          authorPronouns: p.pronouns || 'they/them',
+          authorPhotoURL: p.photoURL || null,
+        });
+      }
+      setAnnouncements(arr);
+    });
+    return unsub;
+  }, [groupId]);
+
+  useEffect(() => {
+    const tab = searchParams.get('tab') || 'members';
+    const allowed = ['members', 'announcements'];
+    if (isMod) allowed.push('invites', 'settings');
+    if (!allowed.includes(tab)) {
+      setActiveTab('members');
+      setSearchParams({ tab: 'members' }, { replace: true });
+    } else {
+      setActiveTab(tab);
+    }
+  }, [searchParams, isMod, setSearchParams]);
 
   const promote = async (id: string, role: 'moderator' | 'member') => {
     if (!groupId) return;
@@ -144,9 +200,26 @@ export function GroupDetail() {
       });
       toast.success(`Invitation sent to ${userInfo.displayName || userInfo.email}`);
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(`Could not send invite: ${(e as Error).message}`);
     } finally {
       setInviting(null);
+    }
+  };
+
+  const postAnnouncement = async () => {
+    if (!groupId || !uid || !announceContent.trim()) return;
+    setPosting(true);
+    try {
+      await addDoc(collection(db, 'groups', groupId, 'announcements'), {
+        authorUid: uid,
+        contentHtml: announceContent,
+        createdAt: serverTimestamp(),
+      });
+      setAnnounceContent('');
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setPosting(false);
     }
   };
 
@@ -163,6 +236,21 @@ export function GroupDetail() {
     });
     toast.success('Group archived');
     navigate('/groups');
+  };
+
+  const confirmDelete = () => {
+    if (!safetyOn) {
+      toast.warning('Flip the safety latch first');
+      return;
+    }
+    Modal.confirm({
+      title: 'Delete Group?',
+      content:
+        'Deleting will remove this group forever. Consider transferring ownership or removing yourself as a member instead.',
+      okText: 'Delete',
+      okButtonProps: { danger: true },
+      onOk: archiveGroup,
+    });
   };
 
   if (loading || !group) return <Spin />;
@@ -259,7 +347,7 @@ export function GroupDetail() {
       animate="show"
     >
       <Input
-        placeholder="Search users"
+        placeholder="Add users by email or username…"
         style={{ marginBottom: 8 }}
         value={inviteTerm}
         onChange={e => setInviteTerm(e.target.value)}
@@ -290,6 +378,45 @@ export function GroupDetail() {
           )}
         />
       )}
+    </motion.div>
+  );
+
+  const announcementsTab = (
+    <motion.div
+      variants={{ show: { transition: { staggerChildren: m.durations.stagger } } }}
+      initial="show"
+      animate="show"
+    >
+      {isMod && (
+        <div style={{ marginBottom: 16 }}>
+          <Input.TextArea
+            rows={4}
+            placeholder="Write an announcement…"
+            value={announceContent}
+            onChange={e => setAnnounceContent(e.target.value)}
+            style={{ marginBottom: 8 }}
+          />
+          <Button type="primary" onClick={postAnnouncement} loading={posting}>
+            Post Announcement
+          </Button>
+        </div>
+      )}
+      <List
+        dataSource={announcements}
+        renderItem={ann => (
+          <List.Item>
+            <List.Item.Meta
+              avatar={<Avatar src={ann.authorPhotoURL || undefined} />}
+              title={`${ann.authorName} (${ann.authorPronouns})`}
+              description={ann.createdAt.toDate().toLocaleString()}
+            />
+            <div
+              dangerouslySetInnerHTML={{ __html: ann.contentHtml }}
+              style={{ marginTop: 8 }}
+            />
+          </List.Item>
+        )}
+      />
     </motion.div>
   );
 
@@ -324,18 +451,25 @@ export function GroupDetail() {
         <option value="invite-only">Invite Only</option>
         <option value="request-to-join">Request to Join</option>
       </select>
-      <Input.TextArea rows={3} placeholder="Announcement" style={{ marginBottom: 8 }} />
-      <Button style={{ marginBottom: 16 }}>Post</Button>
       {isOwner && (
-        <Button danger onClick={archiveGroup}>Delete Group</Button>
+        <div style={{ marginTop: 16 }}>
+          <Switch checked={safetyOn} onChange={setSafetyOn} style={{ marginRight: 8 }} />
+          Safety Latch
+          <div style={{ marginTop: 8 }}>
+            <Button danger disabled={!safetyOn} onClick={confirmDelete}>
+              Delete Group
+            </Button>
+          </div>
+        </div>
       )}
     </motion.div>
   );
 
   const items = [
     { key: 'members', label: 'Members', children: membersTab },
-    { key: 'invites', label: 'Invitations', children: invitesTab },
-    { key: 'settings', label: 'Settings', children: settingsTab },
+    { key: 'announcements', label: 'Announcements', children: announcementsTab },
+    ...(isMod ? [{ key: 'invites', label: 'Invitations', children: invitesTab }] : []),
+    ...(isMod ? [{ key: 'settings', label: 'Settings', children: settingsTab }] : []),
   ];
 
   return (
@@ -343,13 +477,30 @@ export function GroupDetail() {
       title={group.name}
       className="glass-card"
       style={{ margin: '2rem' }}
-      extra={<Button onClick={() => navigate('/groups')}>Back</Button>}
+      extra={
+        <>
+          {isMod && (
+            <Button style={{ marginRight: 8 }} onClick={() => setSendOpen(true)}>
+              Send Files
+            </Button>
+          )}
+          <Button onClick={() => navigate('/groups')}>Back</Button>
+        </>
+      }
     >
       <Tabs
         items={items}
         destroyInactiveTabPane
         animated={{ inkBar: true, tabPane: true }}
+        activeKey={activeTab}
+        onChange={key => {
+          setActiveTab(key);
+          setSearchParams({ tab: key }, { replace: true });
+        }}
       />
+      {isMod && (
+        <SendFilesModal open={sendOpen} onClose={() => setSendOpen(false)} groupId={groupId!} />
+      )}
     </Card>
   );
 }
