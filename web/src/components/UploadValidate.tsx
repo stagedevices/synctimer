@@ -9,6 +9,7 @@ import { saveAs } from "file-saver";
 import { auth } from "../lib/firebase";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
+
 // Glassmorphic card style using global token
 const glassStyle: CSSProperties = {
   background: 'var(--glass-bg)',
@@ -90,6 +91,7 @@ export function UploadValidate() {
       // Split YAML into individual parts if applicable
       try {
         const events = parseYaml(result) as Array<any>;
+
         const instruments = Array.from(
           new Set(
             events
@@ -100,6 +102,7 @@ export function UploadValidate() {
         const partArr = instruments.map((inst) => ({
           name: inst,
           yaml: stringifyYaml(
+
             events.filter((e: any) => (e.instruments || []).includes(inst))
           ),
         }));
