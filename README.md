@@ -10,9 +10,6 @@ If you encounter a Vite error like `Failed to resolve import "yaml"`, ensure
 that dependencies were installed via `pnpm install` from the repository root so
 the browser build of `yaml` is present under `web/node_modules`.
 
-If you encounter a Vite error like `Failed to resolve import "yaml"`, double
-check that `pnpm install` was run inside the `web` directory so that the browser
-build of `yaml` gets installed under `web/node_modules`.
 
 Once dependencies are installed you can lint and build both packages with:
 

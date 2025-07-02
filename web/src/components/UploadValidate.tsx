@@ -100,7 +100,7 @@ export function UploadValidate() {
           new Set(
             events
               .map((e: any) => (e.instruments ? e.instruments[0] : null))
-              .filter(Boolean)
+              .filter((name) => name && name !== 'Unknown')
           )
         ) as string[];
         const partArr = instruments.map((inst) => ({
