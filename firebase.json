@@ -20,13 +20,14 @@
     ]
   },
   "extensions": {
-    "emailTrigger": {
-      "source": "firebase/extensions/trigger-email@latest",
-      "extensionId": "trigger-email",
-      "params": {
-        "RECIPIENT_COLLECTION_PATH": "emailChangeRequests/{token}",
-        "EMAIL_SUBJECT": "SyncTimer Email Change Verification",
-        "EMAIL_BODY": "Click here to verify your new email: https://<YOUR_DOMAIN>/verify-email?token={{token}}"
+    "instances": {
+      "emailTrigger": {
+        "source": "firebase/extensions/trigger-email@latest",
+        "params": {
+          "RECIPIENT_COLLECTION_PATH": "emailChangeRequests/{token}",
+          "EMAIL_SUBJECT": "SyncTimer Email Change Verification",
+          "EMAIL_BODY": "Click here to verify your new email: https://<YOUR_DOMAIN>/verify-email?token={{token}}"
+        }
       }
     }
   },
