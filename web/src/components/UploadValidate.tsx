@@ -3,11 +3,12 @@ import { useDropzone } from "react-dropzone";
 import { parseUpload } from "../lib/api";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { materialLight } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { Card, Button, Row, Col, Input, Switch, message, Alert, Spin } from "antd";
+import { Card, Button, Row, Col, Input, Switch, message, Alert, Spin, Tabs } from "antd";
 import { SunOutlined, MoonOutlined, CopyOutlined, DownloadOutlined } from "@ant-design/icons";
 import { saveAs } from "file-saver";
-import { auth, db } from "../lib/firebase";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { auth } from "../lib/firebase";
+import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
+import { uploadYaml } from "../lib/api";
 
 // Glassmorphic card style using global token
 const glassStyle: CSSProperties = {
@@ -45,6 +46,9 @@ export function UploadValidate() {
 
   const [xmlText, setXmlText] = useState("");
   const [yaml, setYaml] = useState<string | null>(null);
+  // Individual instrument slices extracted from the parsed YAML
+  const [parts, setParts] = useState<{ name: string; yaml: string }[]>([]);
+  const [activeTab, setActiveTab] = useState('full');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [filename, setFilename] = useState('out.yaml');
@@ -83,7 +87,28 @@ export function UploadValidate() {
         () => parseUpload(blob, filename, uid),
         3,
         500
-      );      setYaml(result);
+      );
+      setYaml(result);
+      // Split YAML into individual parts if applicable. Each event may list
+      // multiple instruments, so gather the unique set and slice the YAML per
+      // instrument.
+      try {
+        const events = parseYaml(result) as Array<any>;
+        const instruments = Array.from(
+          new Set(events.flatMap((e: any) => e.instruments || []))
+        ) as string[];
+        const partArr = instruments.map((inst) => ({
+          name: inst,
+          yaml: stringifyYaml(
+            events.filter((e: any) => (e.instruments || []).includes(inst))
+          ),
+        }));
+        setParts(partArr);
+      } catch (e) {
+        console.warn("Part split failed", e);
+        setParts([]);
+      }
+      setActiveTab('full');
       const duration = ((performance.now() - start) / 1000).toFixed(2);
       message.success(`Parsed in ${duration}s`, 3);
     } catch (err: unknown) {
@@ -117,25 +142,19 @@ export function UploadValidate() {
       message.error('No user signed in', 3);
       return;
     }
+    // Send only the YAML currently shown in the tab. The Cloud Function
+    // persists it under /users/{uid}/files.
+    const selectedYaml = activeTab === 'full'
+      ? yaml
+      : parts.find(p => p.name === activeTab)?.yaml;
+    if (!selectedYaml) return;
+    const sendName = activeTab === 'full' ? filename : `${activeTab}.yaml`;
     try {
-      await addDoc(collection(db, 'users', uid, 'files'), {
-        title: filename,
-        yaml,
-        createdAt: serverTimestamp(),
-        size: yaml.length,
-        status: 'ready',
-      });
-      await addDoc(collection(db, 'users', uid, 'sent'), {
-        title: filename,
-        yaml,
-        createdAt: serverTimestamp(),
-        size: yaml.length,
-        status: 'ready',
-      });
-      message.success('Saved to My Files', 3);
+      await uploadYaml(selectedYaml, sendName, uid);
+      message.success(`Sent '${sendName}' to My Files`, 3);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      message.error(msg || 'Failed to save', 3);
+      message.error(msg || 'Failed to send', 3);
     }
   };
 
@@ -219,9 +238,39 @@ export function UploadValidate() {
               {yaml ? (
                 <>
                   <div style={{ flex: 1, overflow: 'auto' }}>
-                    <SyntaxHighlighter language="yaml" style={materialLight} customStyle={{ fontSize: '1.2rem' }}>
-                      {yaml}
-                    </SyntaxHighlighter>
+                    <Tabs
+                      destroyInactiveTabPane={false}
+                      activeKey={activeTab}
+                      onChange={setActiveTab}
+                      items={[
+                        {
+                          key: 'full',
+                          label: 'Full Score',
+                          children: (
+                            <SyntaxHighlighter
+                              language="yaml"
+                              style={materialLight}
+                              customStyle={{ fontSize: '1.2rem' }}
+                            >
+                              {yaml}
+                            </SyntaxHighlighter>
+                          ),
+                        },
+                        ...parts.map(p => ({
+                          key: p.name,
+                          label: p.name,
+                          children: (
+                            <SyntaxHighlighter
+                              language="yaml"
+                              style={materialLight}
+                              customStyle={{ fontSize: '1.2rem' }}
+                            >
+                              {p.yaml}
+                            </SyntaxHighlighter>
+                          ),
+                        })),
+                      ]}
+                    />
                   </div>
                   <div style={{ marginTop: '1rem', textAlign: 'right' }}>
                     <Input
@@ -230,20 +279,11 @@ export function UploadValidate() {
                       style={{ width: '60%', marginRight: '1rem', fontSize: '1.2rem' }}
                     />
                     <Button icon={<CopyOutlined />} onClick={handleCopy} style={{ marginRight: '0.5rem' }} />
-                    <Button icon={<DownloadOutlined />} onClick={handleDownload} />
+                    <Button icon={<DownloadOutlined />} onClick={handleDownload} style={{ marginRight: '0.5rem' }} />
+                    <Button type="primary" onClick={handleSendToFiles}>
+                      Send to My Files
+                    </Button>
                   </div>
-                  <Button
-                    type="primary"
-                    size="large"
-                    style={{
-                      backgroundColor: '#70C73C',
-                      borderRadius: '1rem',
-                      marginTop: '1rem',
-                    }}
-                    onClick={handleSendToFiles}
-                  >
-                    Send to My Files
-                  </Button>
                   </>
                 ) : (
                   <div style={{ textAlign: 'center', color: '#888', padding: '2rem', fontSize: '1.2rem' }}>
