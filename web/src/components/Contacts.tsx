@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, type ChangeEvent } from 'react';
+import { useAuthState } from 'react-firebase-hooks/auth';
 import {
   Card,
   List,
@@ -21,12 +22,14 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { removeFriend } from '../lib/friends';
+import { toast } from '../lib/toast';
 import { useFriends } from '../hooks/useFriends';
 import { useUserSearch } from '../hooks/useUserSearch';
 import type { UserInfo } from '../hooks/useFriends';
 
 export function Contacts() {
-  const uid = auth.currentUser?.uid;
+  // track auth state to ensure currentUser is ready when actions run
+  const [user] = useAuthState(auth);
   const reduce = useReducedMotion() ?? false;
   const {
     contacts,
@@ -46,6 +49,7 @@ export function Contacts() {
   const [assignContact, setAssignContact] = useState<string | null>(null);
 
   const sendRequest = async () => {
+    const uid = user?.uid;
     if (!uid || !selected) return;
     if (selected.id === uid) {
       message.error("Can't add yourself");
@@ -72,6 +76,7 @@ export function Contacts() {
   };
 
   const accept = async (other: UserInfo) => {
+    const uid = user?.uid;
     if (!uid) return;
     try {
       await setDoc(doc(db, 'users', uid, 'contacts', other.id), {});
@@ -85,6 +90,7 @@ export function Contacts() {
   };
 
   const decline = async (other: UserInfo) => {
+    const uid = user?.uid;
     if (!uid) return;
     try {
       await deleteDoc(doc(db, 'users', uid, 'incomingRequests', other.id));
@@ -95,6 +101,7 @@ export function Contacts() {
   };
 
   const cancel = async (other: UserInfo) => {
+    const uid = user?.uid;
     if (!uid) return;
     try {
       await deleteDoc(doc(db, 'users', uid, 'outgoingRequests', other.id));
@@ -105,19 +112,27 @@ export function Contacts() {
   };
 
   const remove = async (other: UserInfo) => {
+    const uid = user?.uid;
     if (!uid) return;
     Modal.confirm({
       title: 'Remove contact?',
       okButtonProps: { danger: true },
-      onOk: () => {
+      onOk: async () => {
         setRemoving(other.id);
-        return removeFriend(other.id)
-          .then(() => {
-            removeLocal(other.id);
-            return refetch();
-          })
-          .finally(() => setRemoving(null));
-
+        // Optimistically remove the friend from local state
+        removeLocal(other.id);
+        try {
+          await removeFriend(other.id);
+          toast.success(
+            `Removed ${other.displayName ?? other.email ?? 'user'} from your contacts.`,
+          );
+        } catch (e: unknown) {
+          // If an error occurs, restore the contact list
+          await refetch();
+          toast.error((e as Error).message || String(e));
+        } finally {
+          setRemoving(null);
+        }
       },
     });
   };
@@ -261,7 +276,7 @@ export function Contacts() {
         <Input
           placeholder="Add users..."
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
         />
         {search && results.length > 0 && (
           <List
