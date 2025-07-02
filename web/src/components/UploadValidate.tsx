@@ -7,7 +7,8 @@ import { Card, Button, Row, Col, Input, Switch, message, Alert, Spin, Tabs } fro
 import { SunOutlined, MoonOutlined, CopyOutlined, DownloadOutlined } from "@ant-design/icons";
 import { saveAs } from "file-saver";
 import { auth } from "../lib/firebase";
-import YAML from "yaml";
+import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
+
 
 // Glassmorphic card style using global token
 const glassStyle: CSSProperties = {
@@ -89,7 +90,8 @@ export function UploadValidate() {
       setYaml(result);
       // Split YAML into individual parts if applicable
       try {
-        const events = YAML.parse(result) as Array<any>;
+        const events = parseYaml(result) as Array<any>;
+
         const instruments = Array.from(
           new Set(
             events
@@ -99,7 +101,8 @@ export function UploadValidate() {
         ) as string[];
         const partArr = instruments.map((inst) => ({
           name: inst,
-          yaml: YAML.stringify(
+          yaml: stringifyYaml(
+
             events.filter((e: any) => (e.instruments || []).includes(inst))
           ),
         }));
