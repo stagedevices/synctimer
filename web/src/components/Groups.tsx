@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, List, Button, Spin, Modal, Input, Select, Avatar } from 'antd';
+import { Card, List, Button, Spin, Modal, Input, Select } from 'antd';
 import { ArrowRightOutlined } from '@ant-design/icons';
 import { motion, useReducedMotion } from 'framer-motion';
 import { cardVariants, motion as m } from '../theme/motion';
+import { formatDistanceToNow } from 'date-fns';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '../lib/firebase';
 import { toast } from '../lib/toast';
@@ -17,10 +18,11 @@ import {
   setDoc,
   deleteDoc,
   query,
-  collectionGroup,
   where,
   serverTimestamp,
   getDoc,
+  updateDoc,
+  increment,
 
   type Timestamp,
 } from 'firebase/firestore';
@@ -42,12 +44,9 @@ interface Invite {
   id: string;
   groupId: string;
   invitedByUid: string;
-  invitedAt: Timestamp;
-  message?: string;
-  groupName?: string;
-  inviterName?: string;
-  inviterPronouns?: string;
-  inviterPhotoURL?: string | null;
+  inviteAt: Timestamp;
+  groupName: string;
+  inviterName: string;
 }
 
 export function Groups() {
@@ -62,6 +61,8 @@ export function Groups() {
   const [assignGroupId, setAssignGroupId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [busyIds, setBusyIds] = useState<Record<string, boolean>>({});
+  const [shakeId, setShakeId] = useState<string | null>(null);
   const [values, setValues] = useState({
     name: '',
     description: '',
@@ -102,39 +103,33 @@ export function Groups() {
     return unsub;
   }, [uid]);
 
+  // 1) Subscribe to pending invites
   useEffect(() => {
     if (!uid) return;
-    // Fetch pending invites
-    const q = query(
-      collectionGroup(db, 'invites'),
-      where('targetUid', '==', uid),
-
-      where('invitedBy', '!=', uid),
-    );
+    const q = collection(db, 'users', uid, 'groupInvites');
     const unsub = onSnapshot(q, async snap => {
       const arr: Invite[] = [];
       for (const d of snap.docs) {
-        const data = d.data() as { invitedBy: string; invitedAt: Timestamp; groupId?: string };
-
-        const groupId = d.ref.parent.parent?.id;
-        if (!groupId) continue;
-        // Fetch group and inviter info
-        const groupSnap = await getDoc(doc(db, 'groups', groupId));
-        const gData = groupSnap.exists() ? (groupSnap.data() as { name?: string }) : {};
-        const groupName = gData.name ?? '';
+        const data = d.data() as {
+          groupId: string;
+          invitedBy: string;
+          inviteAt: Timestamp;
+        };
+        const groupSnap = await getDoc(doc(db, 'groups', data.groupId));
+        const gName = groupSnap.exists()
+          ? ((groupSnap.data() as { name?: string }).name || '')
+          : '';
         const inviterSnap = await getDoc(doc(db, 'users', data.invitedBy, 'profile'));
-        const inviterData = inviterSnap.exists()
-          ? (inviterSnap.data() as { displayName?: string; pronouns?: string; photoURL?: string })
-          : {};
+        const iName = inviterSnap.exists()
+          ? ((inviterSnap.data() as { displayName?: string }).displayName || 'Unknown')
+          : 'Unknown';
         arr.push({
           id: d.id,
-          groupId,
+          groupId: data.groupId,
           invitedByUid: data.invitedBy,
-          invitedAt: data.invitedAt,
-          groupName,
-          inviterName: inviterData.displayName || 'Unknown',
-          inviterPronouns: inviterData.pronouns || 'they/them',
-          inviterPhotoURL: inviterData.photoURL || null,
+          inviteAt: data.inviteAt,
+          groupName: gName,
+          inviterName: iName,
         });
       }
       setInvites(arr);
@@ -185,28 +180,38 @@ export function Groups() {
     await deleteDoc(doc(db, 'users', uid, 'groups', id));
   };
 
+  // 3) Handle Accept / Reject
   const acceptInvite = async (inv: Invite) => {
     if (!uid) return;
+    setBusyIds(b => ({ ...b, [inv.id]: true }));
     try {
-      // Accept invite: add membership then remove invite
       await setDoc(doc(db, 'groups', inv.groupId, 'members', uid), {
         role: 'member',
         joinedAt: serverTimestamp(),
       });
-      await deleteDoc(doc(db, 'groups', inv.groupId, 'invites', uid));
-      toast.success(`You've joined ${inv.groupName}.`);
+      await updateDoc(doc(db, 'groups', inv.groupId), {
+        memberCount: increment(1),
+      });
+      await deleteDoc(doc(db, 'users', uid, 'groupInvites', inv.id));
+      setInvites(prev => prev.filter(i => i.id !== inv.id));
+      toast.success(`Joined “${inv.groupName}”`);
     } catch (e) {
+      setBusyIds(b => ({ ...b, [inv.id]: false }));
+      setShakeId(inv.id);
       toast.error((e as Error).message);
     }
   };
 
-  // Decline invite handler
   const declineInvite = async (inv: Invite) => {
     if (!uid) return;
+    setBusyIds(b => ({ ...b, [inv.id]: true }));
     try {
-      await deleteDoc(doc(db, 'groups', inv.groupId, 'invites', uid));
-      toast.info(`Invite to ${inv.groupName} declined.`);
+      await deleteDoc(doc(db, 'users', uid, 'groupInvites', inv.id));
+      setInvites(prev => prev.filter(i => i.id !== inv.id));
+      toast.info(`Invite to “${inv.groupName}” rejected`);
     } catch (e) {
+      setBusyIds(b => ({ ...b, [inv.id]: false }));
+      setShakeId(inv.id);
       toast.error((e as Error).message);
     }
   };
@@ -214,31 +219,50 @@ export function Groups() {
   if (!uid || loading) return <Spin />;
   return (
     <>
-      {invites.length > 0 && (
-        <Card title="Invitations" className="glass-card" style={{ margin: '2rem' }}>
+      {/* 2) Render Invitations Card */}
+      <Card title="Invitations" className="glass-card" style={{ margin: '2rem' }}>
+        {invites.length === 0 ? (
+          <div>No pending group invites.</div>
+        ) : (
           <List
             dataSource={invites}
             renderItem={inv => (
-              <List.Item
-                actions={[
-                  <Button key="acc" type="primary" onClick={() => acceptInvite(inv)}>
-                    Accept
-                  </Button>,
-                  <Button key="decl" onClick={() => declineInvite(inv)}>
-                    Decline
-                  </Button>,
-                ]}
+              <motion.div
+                animate={shakeId === inv.id ? { x: [-8, 8, -8, 0] } : false}
+                onAnimationComplete={() => setShakeId(null)}
+                key={inv.id}
               >
-                <List.Item.Meta
-                  avatar={<Avatar src={inv.inviterPhotoURL || undefined} />}
-                  title={inv.groupName}
-                  description={`Invited by ${inv.inviterName} (${inv.inviterPronouns}) · ${inv.invitedAt.toDate().toLocaleDateString()}`}
-                />
-              </List.Item>
+                <List.Item
+                  actions={[
+                    <Button
+                      key="acc"
+                      type="primary"
+                      style={{ backgroundColor: '#70C73C', borderColor: '#70C73C' }}
+                      disabled={busyIds[inv.id]}
+                      onClick={() => acceptInvite(inv)}
+                    >
+                      Accept
+                    </Button>,
+                    <Button
+                      key="decl"
+                      danger
+                      disabled={busyIds[inv.id]}
+                      onClick={() => declineInvite(inv)}
+                    >
+                      Reject
+                    </Button>,
+                  ]}
+                >
+                  <List.Item.Meta
+                    title={inv.groupName}
+                    description={`Invited by ${inv.inviterName} · ${formatDistanceToNow(inv.inviteAt.toDate(), { addSuffix: true })}`}
+                  />
+                </List.Item>
+              </motion.div>
             )}
           />
-        </Card>
-      )}
+        )}
+      </Card>
       <Card title="My Groups" className="glass-card" style={{ margin: '2rem' }}>
       <Button onClick={() => setModalOpen(true)} style={{ marginBottom: 16 }}>
         Create Group
@@ -269,12 +293,12 @@ export function Groups() {
                     onClick={() => navigate(`/groups/${g.id}`)}
                     actions={[
                       (g.role === 'owner' || g.role === 'moderator') && (
-                        <Button key="send" onClick={e => { e.stopPropagation(); setSendGroupId(g.id); }}>
+                        <Button key="send" onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); setSendGroupId(g.id); }}>
                           Send Files
                         </Button>
                       ),
                       (g.role === 'owner' || g.role === 'moderator') && (
-                        <Button key="assign" onClick={e => { e.stopPropagation(); setAssignGroupId(g.id); }}>
+                        <Button key="assign" onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); setAssignGroupId(g.id); }}>
                           Assign to Group ➔
                         </Button>
                       ),
@@ -282,14 +306,14 @@ export function Groups() {
                         key="view"
                         type="link"
                         icon={<ArrowRightOutlined />}
-                        onClick={e => {
+                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                           e.stopPropagation();
                           navigate(`/groups/${g.id}`);
                         }}
                       >
                         Manage
                       </Button>,
-                      <Button key="leave" onClick={e => { e.stopPropagation(); leaveGroup(g.id); }}>
+                      <Button key="leave" onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); leaveGroup(g.id); }}>
                         Leave
                       </Button>,
                     ]}
@@ -313,14 +337,14 @@ export function Groups() {
           placeholder="Group Name"
           style={{ marginBottom: 8 }}
           value={values.name}
-          onChange={e => setValues({ ...values, name: e.target.value })}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setValues({ ...values, name: e.target.value })}
         />
         <Input.TextArea
           rows={3}
           placeholder="Description"
           style={{ marginBottom: 8 }}
           value={values.description}
-          onChange={e => setValues({ ...values, description: e.target.value })}
+          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setValues({ ...values, description: e.target.value })}
         />
         <Select
           style={{ width: '100%' }}
