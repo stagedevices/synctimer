@@ -86,3 +86,23 @@ export async function removePeer(peerUid: string, fromUid: string): Promise<void
     throw new Error(await resp.text());
   }
 }
+
+export async function uploadYaml(
+  yamlText: string,
+  filename: string,
+  uid: string,
+): Promise<void> {
+  const url = `https://us-central1-${import.meta.env.VITE_FIREBASE_PROJECT_ID}.cloudfunctions.net/parseUpload`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/yaml',
+      Authorization: `Bearer ${uid}`,
+      'X-File-Name': filename,
+    },
+    body: yamlText,
+  });
+  if (!resp.ok) {
+    throw new Error(await resp.text());
+  }
+}
