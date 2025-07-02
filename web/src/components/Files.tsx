@@ -1,6 +1,6 @@
 // src/components/Files.tsx
 import { useEffect, useState } from "react";
-import { Card, List, Spin, Button, Select, Tabs } from "antd";
+import { List, Spin, Button, Tabs } from "antd";
 import { AssignmentModal } from './AssignmentModal';
 import { DownloadOutlined } from "@ant-design/icons";
 import { db, auth } from "../lib/firebase";
@@ -11,11 +11,6 @@ import {
   orderBy,
   where,
   onSnapshot,
-  getDocs,
-  getDoc,
-  addDoc,
-  doc,
-  serverTimestamp,
   Timestamp
 } from "firebase/firestore";
 
@@ -26,13 +21,6 @@ interface FileRecord {
   createdAt: Timestamp;
   size: number;
   status: string;
-}
-
-interface SharedRecord {
-  id: string;
-  title: string;
-  sharedBy: string;
-  sharedAt: Timestamp;
 }
 
 interface AssignedRecord {
@@ -48,10 +36,8 @@ export function Files() {
   const uid = user?.uid;
 
   const [files, setFiles] = useState<FileRecord[]>([]);
-  const [shared, setShared] = useState<SharedRecord[]>([]);
   const [assigned, setAssigned] = useState<AssignedRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [targets, setTargets] = useState<Array<{ value: string; label: string }>>([]);
   const [assignFile, setAssignFile] = useState<string | null>(null);
 
   useEffect(() => {
@@ -83,22 +69,6 @@ export function Files() {
   useEffect(() => {
     if (!uid) return;
     const q = query(
-      collection(db, "users", uid, "shared"),
-      orderBy("sharedAt", "desc")
-    );
-    const unsub = onSnapshot(q, snap => {
-      const docs = snap.docs.map(d => ({
-        id: d.id,
-        ...(d.data() as Omit<SharedRecord, "id">),
-      }));
-      setShared(docs);
-    });
-    return unsub;
-  }, [uid]);
-
-  useEffect(() => {
-    if (!uid) return;
-    const q = query(
       collection(db, 'users', uid, 'assignments'),
       orderBy('assignedAt', 'desc')
     );
@@ -108,42 +78,7 @@ export function Files() {
     return unsub;
   }, [uid]);
 
-  const pushTo = async (value: string, file: FileRecord) => {
-    if (!uid) return;
-    const [type, id] = value.split(':');
-    const snap = await getDocs(collection(db, type === 'tag' ? 'tags' : 'groups', id, 'members'));
-    await Promise.all(
-      snap.docs.map(m =>
-        addDoc(collection(db, 'users', m.id, 'files'), {
-          title: file.title,
-          yaml: file.yaml,
-          createdAt: serverTimestamp(),
-          size: file.size,
-          status: 'ready',
-        })
-      )
-    );
-  };
 
-  useEffect(() => {
-    if (!uid) return;
-    const unsubTags = onSnapshot(collection(db, 'users', uid, 'tags'), snap => {
-      const opts = snap.docs.map(d => ({ value: `tag:${d.id}`, label: `#${d.id}` }));
-      setTargets(t => [...opts, ...t.filter(o => !o.value.startsWith('tag:'))]);
-    });
-    const unsubGroups = onSnapshot(collection(db, 'users', uid, 'groups'), async snap => {
-      const arr = [] as Array<{ value: string; label: string }>;
-      for (const d of snap.docs) {
-        const g = await getDoc(doc(db, 'groups', d.id));
-        if (g.exists()) arr.push({ value: `group:${d.id}`, label: g.data().name });
-      }
-      setTargets(t => [...t.filter(o => !o.value.startsWith('group:')), ...arr]);
-    });
-    return () => {
-      unsubTags();
-      unsubGroups();
-    };
-  }, [uid]);
 
   if (!uid) return <Spin />;
   if (loading) return <Spin />;
