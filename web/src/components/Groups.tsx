@@ -32,6 +32,9 @@ interface Group {
   managerUid: string;
   visibility: 'invite-only' | 'request-to-join';
   status: 'active' | 'archived';
+  // 1️⃣ Soft-delete flag on group documents
+  isDeleted?: boolean;
+  deletedAt?: Timestamp;
   role: 'owner' | 'moderator' | 'member';
 }
 
@@ -83,7 +86,14 @@ export function Groups() {
             const role = meta.find(m => m.id === d.id)?.role || 'member';
             return { id: d.id, role, ...(d.data() as Omit<Group, 'id' | 'role'>) };
           })
-          .filter(g => g.status !== 'archived');
+          .filter(g => g.status !== 'archived')
+          // 4️⃣ Exclude or placeholder-render deleted groups
+          .filter(g => {
+            if (!g.isDeleted) return true;
+            if (!g.deletedAt) return false;
+            const fifteen = 15 * 24 * 60 * 60 * 1000;
+            return Date.now() - g.deletedAt.toMillis() <= fifteen;
+          });
         setGroups(data);
         setLoading(false);
       });
@@ -133,6 +143,7 @@ export function Groups() {
         visibility,
         memberCount: 1,
         status: 'active',
+        isDeleted: false,
       });
       await setDoc(doc(db, 'groups', docRef.id, 'members', uid), {
         role: 'owner',
@@ -227,40 +238,50 @@ export function Groups() {
           renderItem={g => (
             <motion.div variants={cardVariants(reduce)} key={g.id}>
               <List.Item>
-                <Card
-                  className="glass-card group-card"
-                  hoverable
-                  style={{ width: '100%' }}
-                  onClick={() => navigate(`/groups/${g.id}`)}
-                  actions={[
-                    (g.role === 'owner' || g.role === 'moderator') && (
-                      <Button key="send" onClick={e => { e.stopPropagation(); setSendGroupId(g.id); }}>
-                        Send Files
-                      </Button>
-                    ),
-                    (g.role === 'owner' || g.role === 'moderator') && (
-                      <Button key="assign" onClick={e => { e.stopPropagation(); setAssignGroupId(g.id); }}>
-                        Assign to Group ➔
-                      </Button>
-                    ),
-                    <Button
-                      key="view"
-                      type="link"
-                      icon={<ArrowRightOutlined />}
-                      onClick={e => {
-                        e.stopPropagation();
-                        navigate(`/groups/${g.id}`);
-                      }}
-                    >
-                      Manage
-                    </Button>,
-                    <Button key="leave" onClick={e => { e.stopPropagation(); leaveGroup(g.id); }}>
-                      Leave
-                    </Button>,
-                  ]}
-                >
-                  <Card.Meta title={g.name} description={g.description} />
-                </Card>
+                {g.isDeleted ? (
+                  // 4️⃣ Exclude or placeholder-render deleted groups
+                  <Card className="glass-card group-card" style={{ width: '100%', opacity: 0.5 }}>
+                    <Card.Meta
+                      title="Group Deleted"
+                      description="This group was deleted. If you need help, visit support."
+                    />
+                  </Card>
+                ) : (
+                  <Card
+                    className="glass-card group-card"
+                    hoverable
+                    style={{ width: '100%' }}
+                    onClick={() => navigate(`/groups/${g.id}`)}
+                    actions={[
+                      (g.role === 'owner' || g.role === 'moderator') && (
+                        <Button key="send" onClick={e => { e.stopPropagation(); setSendGroupId(g.id); }}>
+                          Send Files
+                        </Button>
+                      ),
+                      (g.role === 'owner' || g.role === 'moderator') && (
+                        <Button key="assign" onClick={e => { e.stopPropagation(); setAssignGroupId(g.id); }}>
+                          Assign to Group ➔
+                        </Button>
+                      ),
+                      <Button
+                        key="view"
+                        type="link"
+                        icon={<ArrowRightOutlined />}
+                        onClick={e => {
+                          e.stopPropagation();
+                          navigate(`/groups/${g.id}`);
+                        }}
+                      >
+                        Manage
+                      </Button>,
+                      <Button key="leave" onClick={e => { e.stopPropagation(); leaveGroup(g.id); }}>
+                        Leave
+                      </Button>,
+                    ]}
+                  >
+                    <Card.Meta title={g.name} description={g.description} />
+                  </Card>
+                )}
               </List.Item>
             </motion.div>
           )}
