@@ -10,6 +10,7 @@ import { auth } from "../lib/firebase";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { uploadYaml } from "../lib/api";
 
+
 // Glassmorphic card style using global token
 const glassStyle: CSSProperties = {
   background: 'var(--glass-bg)',
@@ -47,6 +48,7 @@ export function UploadValidate() {
   const [xmlText, setXmlText] = useState("");
   const [yaml, setYaml] = useState<string | null>(null);
   // Individual instrument slices extracted from the parsed YAML
+
   const [parts, setParts] = useState<{ name: string; yaml: string }[]>([]);
   const [activeTab, setActiveTab] = useState('full');
   const [error, setError] = useState<string | null>(null);
@@ -96,10 +98,12 @@ export function UploadValidate() {
         const events = parseYaml(result) as Array<any>;
         const instruments = Array.from(
           new Set(events.flatMap((e: any) => e.instruments || []))
+
         ) as string[];
         const partArr = instruments.map((inst) => ({
           name: inst,
           yaml: stringifyYaml(
+
             events.filter((e: any) => (e.instruments || []).includes(inst))
           ),
         }));
@@ -135,6 +139,8 @@ export function UploadValidate() {
     }
   };
 
+  const PARSE_URL = `https://us-central1-${import.meta.env.VITE_FIREBASE_PROJECT_ID}.cloudfunctions.net/parseUpload`;
+
   const handleSendToFiles = async () => {
     if (!yaml) return;
     const uid = auth.currentUser?.uid;
@@ -144,6 +150,7 @@ export function UploadValidate() {
     }
     // Send only the YAML currently shown in the tab. The Cloud Function
     // persists it under /users/{uid}/files.
+
     const selectedYaml = activeTab === 'full'
       ? yaml
       : parts.find(p => p.name === activeTab)?.yaml;
@@ -151,6 +158,7 @@ export function UploadValidate() {
     const sendName = activeTab === 'full' ? filename : `${activeTab}.yaml`;
     try {
       await uploadYaml(selectedYaml, sendName, uid);
+
       message.success(`Sent '${sendName}' to My Files`, 3);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
