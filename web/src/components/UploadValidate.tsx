@@ -8,7 +8,7 @@ import { SunOutlined, MoonOutlined, CopyOutlined, DownloadOutlined } from "@ant-
 import { saveAs } from "file-saver";
 import { auth } from "../lib/firebase";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
-
+import { uploadYaml } from "../lib/api";
 
 // Glassmorphic card style using global token
 const glassStyle: CSSProperties = {
@@ -46,6 +46,8 @@ export function UploadValidate() {
 
   const [xmlText, setXmlText] = useState("");
   const [yaml, setYaml] = useState<string | null>(null);
+  // Individual instrument slices extracted from the parsed YAML
+
   const [parts, setParts] = useState<{ name: string; yaml: string }[]>([]);
   const [activeTab, setActiveTab] = useState('full');
   const [error, setError] = useState<string | null>(null);
@@ -88,16 +90,14 @@ export function UploadValidate() {
         500
       );
       setYaml(result);
-      // Split YAML into individual parts if applicable
+      // Split YAML into individual parts if applicable. Each event may list
+      // multiple instruments, so gather the unique set and slice the YAML per
+      // instrument.
       try {
         const events = parseYaml(result) as Array<any>;
-
         const instruments = Array.from(
-          new Set(
-            events
-              .map((e: any) => (e.instruments ? e.instruments[0] : null))
-              .filter(Boolean)
-          )
+          new Set(events.flatMap((e: any) => e.instruments || []))
+
         ) as string[];
         const partArr = instruments.map((inst) => ({
           name: inst,
@@ -147,23 +147,17 @@ export function UploadValidate() {
       message.error('No user signed in', 3);
       return;
     }
+    // Send only the YAML currently shown in the tab. The Cloud Function
+    // persists it under /users/{uid}/files.
+
     const selectedYaml = activeTab === 'full'
       ? yaml
       : parts.find(p => p.name === activeTab)?.yaml;
     if (!selectedYaml) return;
     const sendName = activeTab === 'full' ? filename : `${activeTab}.yaml`;
     try {
-      const resp = await fetch(PARSE_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'text/yaml',
-          Authorization: `Bearer ${uid}`,
-          'X-File-Name': sendName,
-        },
-        body: selectedYaml,
-      });
-      const text = await resp.text();
-      if (!resp.ok) throw new Error(text);
+      await uploadYaml(selectedYaml, sendName, uid);
+
       message.success(`Sent '${sendName}' to My Files`, 3);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -292,20 +286,11 @@ export function UploadValidate() {
                       style={{ width: '60%', marginRight: '1rem', fontSize: '1.2rem' }}
                     />
                     <Button icon={<CopyOutlined />} onClick={handleCopy} style={{ marginRight: '0.5rem' }} />
-                    <Button icon={<DownloadOutlined />} onClick={handleDownload} />
+                    <Button icon={<DownloadOutlined />} onClick={handleDownload} style={{ marginRight: '0.5rem' }} />
+                    <Button type="primary" onClick={handleSendToFiles}>
+                      Send to My Files
+                    </Button>
                   </div>
-                  <Button
-                    type="primary"
-                    size="large"
-                    style={{
-                      backgroundColor: '#70C73C',
-                      borderRadius: '1rem',
-                      marginTop: '1rem',
-                    }}
-                    onClick={handleSendToFiles}
-                  >
-                    Send to My Files
-                  </Button>
                   </>
                 ) : (
                   <div style={{ textAlign: 'center', color: '#888', padding: '2rem', fontSize: '1.2rem' }}>
