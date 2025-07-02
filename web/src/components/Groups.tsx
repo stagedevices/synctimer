@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, List, Button, Spin, Modal, Input, Select } from 'antd';
+import { Card, List, Button, Spin, Modal, Input, Select, Avatar } from 'antd';
+import { ArrowRightOutlined } from '@ant-design/icons';
 import { motion, useReducedMotion } from 'framer-motion';
 import { cardVariants, motion as m } from '../theme/motion';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -16,6 +17,10 @@ import {
   query,
   where,
   serverTimestamp,
+  getDoc,
+  updateDoc,
+  increment,
+  type Timestamp,
 } from 'firebase/firestore';
 
 interface Group {
@@ -27,12 +32,24 @@ interface Group {
   status: 'active' | 'archived';
 }
 
+interface Invite {
+  id: string;
+  groupId: string;
+  invitedByUid: string;
+  invitedAt: Timestamp;
+  message?: string;
+  groupName?: string;
+  inviterName?: string;
+  inviterPronouns?: string;
+}
+
 export function Groups() {
   const [user] = useAuthState(auth);
   const uid = user?.uid;
   const navigate = useNavigate();
   const reduce = useReducedMotion() ?? false;
   const [groups, setGroups] = useState<Group[]>([]);
+  const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -61,6 +78,33 @@ export function Groups() {
         setLoading(false);
       });
       return () => unsubInner();
+    });
+    return unsub;
+  }, [uid]);
+
+  useEffect(() => {
+    if (!uid) return;
+    const q = collection(db, 'users', uid, 'invites');
+    const unsub = onSnapshot(q, async snap => {
+      const arr: Invite[] = [];
+      for (const d of snap.docs) {
+        const data = d.data() as Omit<Invite, 'id'>;
+        const groupSnap = await getDoc(doc(db, 'groups', data.groupId));
+        const gData = groupSnap.exists() ? (groupSnap.data() as { name?: string }) : {};
+        const groupName = gData.name ?? '';
+        const inviterSnap = await getDoc(doc(db, 'users', data.invitedByUid));
+        const inviterData = inviterSnap.exists()
+          ? (inviterSnap.data() as { displayName?: string; pronouns?: string })
+          : {};
+        arr.push({
+          id: d.id,
+          ...data,
+          groupName,
+          inviterName: inviterData.displayName || 'Unknown',
+          inviterPronouns: inviterData.pronouns || 'they/them',
+        });
+      }
+      setInvites(arr);
     });
     return unsub;
   }, [uid]);
@@ -107,9 +151,58 @@ export function Groups() {
     await deleteDoc(doc(db, 'users', uid, 'groups', id));
   };
 
+  const acceptInvite = async (inv: Invite) => {
+    if (!uid) return;
+    try {
+      await deleteDoc(doc(db, 'users', uid, 'invites', inv.id));
+      await setDoc(doc(db, 'groups', inv.groupId, 'members', uid), { role: 'member' });
+      await setDoc(doc(db, 'users', uid, 'groups', inv.groupId), { role: 'member', joinedAt: serverTimestamp() });
+      await updateDoc(doc(db, 'groups', inv.groupId), { memberCount: increment(1) });
+      toast.success('Joined group');
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  const declineInvite = async (inv: Invite) => {
+    if (!uid) return;
+    try {
+      await deleteDoc(doc(db, 'users', uid, 'invites', inv.id));
+      toast.info('Invite declined');
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
   if (!uid || loading) return <Spin />;
   return (
-    <Card title="My Groups" className="glass-card" style={{ margin: '2rem' }}>
+    <>
+      {invites.length > 0 && (
+        <Card title="Group Invites" className="glass-card" style={{ margin: '2rem' }}>
+          <List
+            dataSource={invites}
+            renderItem={inv => (
+              <List.Item
+                actions={[
+                  <Button key="acc" type="primary" onClick={() => acceptInvite(inv)}>
+                    Accept
+                  </Button>,
+                  <Button key="decl" onClick={() => declineInvite(inv)}>
+                    Decline
+                  </Button>,
+                ]}
+              >
+                <List.Item.Meta
+                  avatar={<Avatar />}
+                  title={inv.groupName}
+                  description={`Invited by ${inv.inviterName} (${inv.inviterPronouns})`}
+                />
+              </List.Item>
+            )}
+          />
+        </Card>
+      )}
+      <Card title="My Groups" className="glass-card" style={{ margin: '2rem' }}>
       <Button onClick={() => setModalOpen(true)} style={{ marginBottom: 16 }}>
         Create Group
       </Button>
@@ -122,16 +215,31 @@ export function Groups() {
           dataSource={groups}
           renderItem={g => (
             <motion.div variants={cardVariants(reduce)} key={g.id}>
-              <List.Item
-                actions={[
-                  <Button key="leave" onClick={() => leaveGroup(g.id)}>
-                    Leave
-                  </Button>,
-                ]}
-                onClick={() => navigate(`/groups/${g.id}`)}
-                style={{ cursor: 'pointer' }}
-              >
-                <List.Item.Meta title={g.name} description={g.description} />
+              <List.Item>
+                <Card
+                  className="glass-card group-card"
+                  hoverable
+                  style={{ width: '100%' }}
+                  onClick={() => navigate(`/groups/${g.id}`)}
+                  actions={[
+                    <Button
+                      key="view"
+                      type="link"
+                      icon={<ArrowRightOutlined />}
+                      onClick={e => {
+                        e.stopPropagation();
+                        navigate(`/groups/${g.id}`);
+                      }}
+                    >
+                      Manage
+                    </Button>,
+                    <Button key="leave" onClick={e => { e.stopPropagation(); leaveGroup(g.id); }}>
+                      Leave
+                    </Button>,
+                  ]}
+                >
+                  <Card.Meta title={g.name} description={g.description} />
+                </Card>
               </List.Item>
             </motion.div>
           )}
@@ -168,5 +276,6 @@ export function Groups() {
         />
       </Modal>
     </Card>
+    </>
   );
 }
