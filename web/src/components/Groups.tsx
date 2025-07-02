@@ -221,8 +221,10 @@ export function Groups() {
   return (
     <>
       {/* 2) Render Invitations Card */}
-      {invites.length > 0 && (
-        <Card title="Invitations" className="glass-card" style={{ margin: '2rem' }}>
+      <Card title="Invitations" className="glass-card" style={{ margin: '2rem' }}>
+        {invites.length === 0 ? (
+          <div>No pending group invites.</div>
+        ) : (
           <List
             dataSource={invites}
             renderItem={inv => (
@@ -260,8 +262,8 @@ export function Groups() {
               </motion.div>
             )}
           />
-        </Card>
-      )}
+        )}
+      </Card>
       <Card title="My Groups" className="glass-card" style={{ margin: '2rem' }}>
       <Button onClick={() => setModalOpen(true)} style={{ marginBottom: 16 }}>
         Create Group
