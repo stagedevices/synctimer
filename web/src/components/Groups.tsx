@@ -6,7 +6,9 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { cardVariants, motion as m } from '../theme/motion';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '../lib/firebase';
+import { fetchProfile } from '../lib/profile';
 import { toast } from '../lib/toast';
+import { SendFileModal } from './SendFileModal';
 import {
   collection,
   onSnapshot,
@@ -30,6 +32,7 @@ interface Group {
   managerUid: string;
   visibility: 'invite-only' | 'request-to-join';
   status: 'active' | 'archived';
+  myRole?: 'owner' | 'moderator' | 'member';
 }
 
 interface Invite {
@@ -58,12 +61,18 @@ export function Groups() {
     description: '',
     visibility: 'invite-only' as 'invite-only' | 'request-to-join',
   });
+  const [sendGroup, setSendGroup] = useState<string | null>(null);
 
   useEffect(() => {
     if (!uid) return;
     const q = collection(db, 'users', uid, 'groups');
     const unsub = onSnapshot(q, async snap => {
-      const ids = snap.docs.map(d => d.id);
+      const roles: Record<string, 'owner' | 'moderator' | 'member'> = {};
+      const ids = snap.docs.map(d => {
+        const data = d.data() as { role?: 'owner' | 'moderator' | 'member' };
+        roles[d.id] = data.role || 'member';
+        return d.id;
+      });
       if (ids.length === 0) {
         setGroups([]);
         setLoading(false);
@@ -74,7 +83,7 @@ export function Groups() {
         const data = s.docs
           .map(d => ({ id: d.id, ...(d.data() as Omit<Group,'id'>) }))
           .filter(g => g.status !== 'archived');
-        setGroups(data);
+        setGroups(data.map(g => ({ ...g, myRole: roles[g.id] })));
         setLoading(false);
       });
       return () => unsubInner();
@@ -92,10 +101,7 @@ export function Groups() {
         const groupSnap = await getDoc(doc(db, 'groups', data.groupId));
         const gData = groupSnap.exists() ? (groupSnap.data() as { name?: string }) : {};
         const groupName = gData.name ?? '';
-        const inviterSnap = await getDoc(doc(db, 'users', data.invitedByUid));
-        const inviterData = inviterSnap.exists()
-          ? (inviterSnap.data() as { displayName?: string; pronouns?: string })
-          : {};
+        const inviterData = await fetchProfile(data.invitedByUid);
         arr.push({
           id: d.id,
           ...data,
@@ -195,7 +201,7 @@ export function Groups() {
                 <List.Item.Meta
                   avatar={<Avatar />}
                   title={inv.groupName}
-                  description={`Invited by ${inv.inviterName} (${inv.inviterPronouns})`}
+                  description={`Invited by ${inv.inviterName} (${inv.inviterPronouns}) · ${inv.invitedAt.toDate().toLocaleDateString()}`}
                 />
               </List.Item>
             )}
@@ -233,10 +239,15 @@ export function Groups() {
                     >
                       Manage
                     </Button>,
+                    (g.myRole === 'owner' || g.myRole === 'moderator') && (
+                      <Button key="send" onClick={e => { e.stopPropagation(); setSendGroup(g.id); }}>
+                        Send Files
+                      </Button>
+                    ),
                     <Button key="leave" onClick={e => { e.stopPropagation(); leaveGroup(g.id); }}>
                       Leave
                     </Button>,
-                  ]}
+                  ].filter(Boolean)}
                 >
                   <Card.Meta title={g.name} description={g.description} />
                 </Card>
@@ -275,6 +286,9 @@ export function Groups() {
           ]}
         />
       </Modal>
+      {sendGroup && (
+        <SendFileModal groupId={sendGroup} onClose={() => setSendGroup(null)} />
+      )}
     </Card>
     </>
   );
