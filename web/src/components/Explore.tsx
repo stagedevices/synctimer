@@ -1,17 +1,20 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Card, Input, List, Button, Tag as AntTag, Spin } from 'antd';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { collection, getDocs, query, orderBy, limit, startAfter, where, doc, getDoc, setDoc, deleteDoc, type DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, limit, startAfter, where, doc, getDoc, setDoc, writeBatch, increment, type DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../lib/firebase';
 import { motion, useReducedMotion } from 'framer-motion';
 import { cardVariants, motion as m } from '../theme/motion';
+import { toast } from '../lib/toast';
 
 interface TagInfo {
   id: string;
   name: string;
   type?: string;
   memberCount?: number;
+  /** Whether the current user is a member */
+  isMember?: boolean;
 }
 
 function useDebounce<T>(value: T, delay: number): T {
@@ -47,17 +50,43 @@ export function Explore() {
   const joinTag = useCallback(async (id: string) => {
     if (!uid) return;
     const lower = id.toLowerCase();
-    await setDoc(doc(db, 'tags', lower), { name: lower }, { merge: true });
-    await setDoc(doc(db, 'tags', lower, 'members', uid), {});
-    await setDoc(doc(db, 'users', uid, 'tags', lower), { name: lower });
-    setYourTags(t => (t.some(x => x.id === lower) ? t : [...t, { id: lower, name: lower }]));
+    try {
+      const tagRef = doc(db, 'tags', lower);
+      // ensure tag exists
+      await setDoc(tagRef, { name: lower }, { merge: true });
+      const membersRef = collection(tagRef, 'members');
+      const batch = writeBatch(db);
+      // add current user to members
+      batch.set(doc(membersRef, uid), {});
+      // increment member count
+      batch.update(tagRef, { memberCount: increment(1) });
+      // track tag on user document
+      batch.set(doc(db, 'users', uid, 'tags', lower), { name: lower });
+      await batch.commit();
+      toast.success(`Joined #${lower}`);
+      setYourTags(t =>
+        t.some(x => x.id === lower) ? t : [...t, { id: lower, name: lower, isMember: true }],
+      );
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
   }, [uid]);
 
   const leaveTag = useCallback(async (id: string) => {
     if (!uid) return;
-    await deleteDoc(doc(db, 'tags', id, 'members', uid));
-    await deleteDoc(doc(db, 'users', uid, 'tags', id));
-    setYourTags(t => t.filter(x => x.id !== id));
+    try {
+      const tagRef = doc(db, 'tags', id);
+      const membersRef = collection(tagRef, 'members');
+      const batch = writeBatch(db);
+      batch.delete(doc(membersRef, uid));
+      batch.update(tagRef, { memberCount: increment(-1) });
+      batch.delete(doc(db, 'users', uid, 'tags', id));
+      await batch.commit();
+      toast.success(`Left #${id}`);
+      setYourTags(t => t.filter(x => x.id !== id));
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
   }, [uid]);
 
   const loadYourTags = useCallback(async () => {
@@ -67,9 +96,9 @@ export function Explore() {
     for (const d of snap.docs) {
       const t = await getDoc(doc(db, 'tags', d.id));
       if (t.exists()) {
-        arr.push({ id: d.id, ...(t.data() as Record<string, unknown>) } as TagInfo);
+        arr.push({ id: d.id, ...(t.data() as Record<string, unknown>), isMember: true } as TagInfo);
       } else {
-        arr.push({ id: d.id, name: d.id });
+        arr.push({ id: d.id, name: d.id, isMember: true });
       }
     }
     setYourTags(arr);
@@ -102,7 +131,10 @@ export function Explore() {
   }, [featCursor, featMore, loadingFeat]);
 
   const searchTags = useCallback(async () => {
-    if (!debounced) { setSearchResults([]); return; }
+    if (!debounced) {
+      setSearchResults([]);
+      return;
+    }
     const term = debounced.toLowerCase();
     const q = query(
       collection(db, 'tags'),
@@ -111,11 +143,17 @@ export function Explore() {
       limit(5)
     );
     const snap = await getDocs(q);
-    const arr = snap.docs
-      .filter(d => d.id.startsWith(term))
-      .map(d => ({ id: d.id, ...(d.data() as Record<string, unknown>) } as TagInfo));
+    const arr: TagInfo[] = [];
+    for (const d of snap.docs.filter(doc => doc.id.startsWith(term))) {
+      let isMember = false;
+      if (uid) {
+        const memDoc = await getDoc(doc(db, 'tags', d.id, 'members', uid));
+        isMember = memDoc.exists();
+      }
+      arr.push({ id: d.id, ...(d.data() as Record<string, unknown>), isMember } as TagInfo);
+    }
     setSearchResults(arr);
-  }, [debounced]);
+  }, [debounced, uid]);
 
   useEffect(() => { loadYourTags(); }, [loadYourTags]);
   useEffect(() => { loadTrending(); }, [loadTrending]);
@@ -179,11 +217,34 @@ export function Explore() {
           bordered
           style={{ marginBottom: 16 }}
           dataSource={searchResults}
-          renderItem={t => (
-            <List.Item onClick={() => navigate(`/explore/${t.id}`)} style={{ cursor: 'pointer' }}>
-              #{t.name}
-            </List.Item>
-          )}
+          renderItem={t => {
+            // show joined state for search suggestions
+            const joined = yourTags.some(y => y.id === t.id);
+            return (
+              <List.Item
+                style={{ cursor: 'pointer' }}
+                actions={[
+                  joined ? (
+                    <span key="joined" aria-label="joined">✓ Joined</span>
+                  ) : (
+                    <Button
+                      key="join"
+                      type="link"
+                      onClick={e => {
+                        e.stopPropagation();
+                        joinTag(t.id);
+                      }}
+                    >
+                      + Join
+                    </Button>
+                  ),
+                ]}
+                onClick={() => navigate(`/explore/${t.id}`)}
+              >
+                #{t.name}
+              </List.Item>
+            );
+          }}
         />
       )}
       <h3>Your Tags</h3>
