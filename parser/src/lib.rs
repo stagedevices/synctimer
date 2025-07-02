@@ -31,6 +31,7 @@ pub fn parse_musicxml(xml: &str) -> anyhow::Result<Vec<Event>> {
         {
             if let Some(id) = score_part.attribute("id") {
                 if let Some(name_node) = score_part.children().find(|c| c.has_tag_name("part-name"))
+
                 {
                     if let Some(name) = name_node.text() {
                         part_names.insert(id.to_string(), name.to_string());
