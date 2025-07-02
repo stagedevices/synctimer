@@ -3,11 +3,11 @@ import { useDropzone } from "react-dropzone";
 import { parseUpload } from "../lib/api";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { materialLight } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { Card, Button, Row, Col, Input, Switch, message, Alert, Spin } from "antd";
+import { Card, Button, Row, Col, Input, Switch, message, Alert, Spin, Tabs } from "antd";
 import { SunOutlined, MoonOutlined, CopyOutlined, DownloadOutlined } from "@ant-design/icons";
 import { saveAs } from "file-saver";
-import { auth, db } from "../lib/firebase";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { auth } from "../lib/firebase";
+import YAML from "yaml";
 
 // Glassmorphic card style using global token
 const glassStyle: CSSProperties = {
@@ -45,6 +45,8 @@ export function UploadValidate() {
 
   const [xmlText, setXmlText] = useState("");
   const [yaml, setYaml] = useState<string | null>(null);
+  const [parts, setParts] = useState<{ name: string; yaml: string }[]>([]);
+  const [activeTab, setActiveTab] = useState('full');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [filename, setFilename] = useState('out.yaml');
@@ -83,7 +85,30 @@ export function UploadValidate() {
         () => parseUpload(blob, filename, uid),
         3,
         500
-      );      setYaml(result);
+      );
+      setYaml(result);
+      // Split YAML into individual parts if applicable
+      try {
+        const events = YAML.parse(result) as Array<any>;
+        const instruments = Array.from(
+          new Set(
+            events
+              .map((e: any) => (e.instruments ? e.instruments[0] : null))
+              .filter(Boolean)
+          )
+        ) as string[];
+        const partArr = instruments.map((inst) => ({
+          name: inst,
+          yaml: YAML.stringify(
+            events.filter((e: any) => (e.instruments || []).includes(inst))
+          ),
+        }));
+        setParts(partArr);
+      } catch (e) {
+        console.warn("Part split failed", e);
+        setParts([]);
+      }
+      setActiveTab('full');
       const duration = ((performance.now() - start) / 1000).toFixed(2);
       message.success(`Parsed in ${duration}s`, 3);
     } catch (err: unknown) {
@@ -110,6 +135,8 @@ export function UploadValidate() {
     }
   };
 
+  const PARSE_URL = `https://us-central1-${import.meta.env.VITE_FIREBASE_PROJECT_ID}.cloudfunctions.net/parseUpload`;
+
   const handleSendToFiles = async () => {
     if (!yaml) return;
     const uid = auth.currentUser?.uid;
@@ -117,25 +144,27 @@ export function UploadValidate() {
       message.error('No user signed in', 3);
       return;
     }
+    const selectedYaml = activeTab === 'full'
+      ? yaml
+      : parts.find(p => p.name === activeTab)?.yaml;
+    if (!selectedYaml) return;
+    const sendName = activeTab === 'full' ? filename : `${activeTab}.yaml`;
     try {
-      await addDoc(collection(db, 'users', uid, 'files'), {
-        title: filename,
-        yaml,
-        createdAt: serverTimestamp(),
-        size: yaml.length,
-        status: 'ready',
+      const resp = await fetch(PARSE_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/yaml',
+          Authorization: `Bearer ${uid}`,
+          'X-File-Name': sendName,
+        },
+        body: selectedYaml,
       });
-      await addDoc(collection(db, 'users', uid, 'sent'), {
-        title: filename,
-        yaml,
-        createdAt: serverTimestamp(),
-        size: yaml.length,
-        status: 'ready',
-      });
-      message.success('Saved to My Files', 3);
+      const text = await resp.text();
+      if (!resp.ok) throw new Error(text);
+      message.success(`Sent '${sendName}' to My Files`, 3);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      message.error(msg || 'Failed to save', 3);
+      message.error(msg || 'Failed to send', 3);
     }
   };
 
@@ -219,9 +248,39 @@ export function UploadValidate() {
               {yaml ? (
                 <>
                   <div style={{ flex: 1, overflow: 'auto' }}>
-                    <SyntaxHighlighter language="yaml" style={materialLight} customStyle={{ fontSize: '1.2rem' }}>
-                      {yaml}
-                    </SyntaxHighlighter>
+                    <Tabs
+                      destroyInactiveTabPane={false}
+                      activeKey={activeTab}
+                      onChange={setActiveTab}
+                      items={[
+                        {
+                          key: 'full',
+                          label: 'Full Score',
+                          children: (
+                            <SyntaxHighlighter
+                              language="yaml"
+                              style={materialLight}
+                              customStyle={{ fontSize: '1.2rem' }}
+                            >
+                              {yaml}
+                            </SyntaxHighlighter>
+                          ),
+                        },
+                        ...parts.map(p => ({
+                          key: p.name,
+                          label: p.name,
+                          children: (
+                            <SyntaxHighlighter
+                              language="yaml"
+                              style={materialLight}
+                              customStyle={{ fontSize: '1.2rem' }}
+                            >
+                              {p.yaml}
+                            </SyntaxHighlighter>
+                          ),
+                        })),
+                      ]}
+                    />
                   </div>
                   <div style={{ marginTop: '1rem', textAlign: 'right' }}>
                     <Input
