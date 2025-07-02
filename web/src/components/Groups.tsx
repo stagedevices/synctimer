@@ -7,6 +7,7 @@ import { cardVariants, motion as m } from '../theme/motion';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '../lib/firebase';
 import { toast } from '../lib/toast';
+import { SendFilesModal } from './SendFilesModal';
 import {
   collection,
   onSnapshot,
@@ -30,6 +31,7 @@ interface Group {
   managerUid: string;
   visibility: 'invite-only' | 'request-to-join';
   status: 'active' | 'archived';
+  role: 'owner' | 'moderator' | 'member';
 }
 
 interface Invite {
@@ -41,6 +43,7 @@ interface Invite {
   groupName?: string;
   inviterName?: string;
   inviterPronouns?: string;
+  inviterPhotoURL?: string | null;
 }
 
 export function Groups() {
@@ -51,6 +54,7 @@ export function Groups() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sendGroupId, setSendGroupId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [values, setValues] = useState({
@@ -63,7 +67,8 @@ export function Groups() {
     if (!uid) return;
     const q = collection(db, 'users', uid, 'groups');
     const unsub = onSnapshot(q, async snap => {
-      const ids = snap.docs.map(d => d.id);
+      const meta = snap.docs.map(d => ({ id: d.id, ...(d.data() as { role?: 'owner' | 'moderator' | 'member' }) }));
+      const ids = meta.map(d => d.id);
       if (ids.length === 0) {
         setGroups([]);
         setLoading(false);
@@ -72,7 +77,10 @@ export function Groups() {
       const qs = query(collection(db, 'groups'), where('__name__', 'in', ids));
       const unsubInner = onSnapshot(qs, s => {
         const data = s.docs
-          .map(d => ({ id: d.id, ...(d.data() as Omit<Group,'id'>) }))
+          .map(d => {
+            const role = meta.find(m => m.id === d.id)?.role || 'member';
+            return { id: d.id, role, ...(d.data() as Omit<Group, 'id' | 'role'>) };
+          })
           .filter(g => g.status !== 'archived');
         setGroups(data);
         setLoading(false);
@@ -92,9 +100,9 @@ export function Groups() {
         const groupSnap = await getDoc(doc(db, 'groups', data.groupId));
         const gData = groupSnap.exists() ? (groupSnap.data() as { name?: string }) : {};
         const groupName = gData.name ?? '';
-        const inviterSnap = await getDoc(doc(db, 'users', data.invitedByUid));
+        const inviterSnap = await getDoc(doc(db, 'users', data.invitedByUid, 'profile'));
         const inviterData = inviterSnap.exists()
-          ? (inviterSnap.data() as { displayName?: string; pronouns?: string })
+          ? (inviterSnap.data() as { displayName?: string; pronouns?: string; photoURL?: string })
           : {};
         arr.push({
           id: d.id,
@@ -102,6 +110,7 @@ export function Groups() {
           groupName,
           inviterName: inviterData.displayName || 'Unknown',
           inviterPronouns: inviterData.pronouns || 'they/them',
+          inviterPhotoURL: inviterData.photoURL || null,
         });
       }
       setInvites(arr);
@@ -193,9 +202,9 @@ export function Groups() {
                 ]}
               >
                 <List.Item.Meta
-                  avatar={<Avatar />}
+                  avatar={<Avatar src={inv.inviterPhotoURL || undefined} />}
                   title={inv.groupName}
-                  description={`Invited by ${inv.inviterName} (${inv.inviterPronouns})`}
+                  description={`Invited by ${inv.inviterName} (${inv.inviterPronouns}) · ${inv.invitedAt.toDate().toLocaleDateString()}`}
                 />
               </List.Item>
             )}
@@ -222,6 +231,11 @@ export function Groups() {
                   style={{ width: '100%' }}
                   onClick={() => navigate(`/groups/${g.id}`)}
                   actions={[
+                    (g.role === 'owner' || g.role === 'moderator') && (
+                      <Button key="send" onClick={e => { e.stopPropagation(); setSendGroupId(g.id); }}>
+                        Send Files
+                      </Button>
+                    ),
                     <Button
                       key="view"
                       type="link"
@@ -275,6 +289,13 @@ export function Groups() {
           ]}
         />
       </Modal>
+      {sendGroupId && (
+        <SendFilesModal
+          open={!!sendGroupId}
+          groupId={sendGroupId}
+          onClose={() => setSendGroupId(null)}
+        />
+      )}
     </Card>
     </>
   );
