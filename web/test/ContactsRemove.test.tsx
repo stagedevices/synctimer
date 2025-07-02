@@ -32,6 +32,7 @@ jest.mock('../src/lib/toast', () => ({
 jest.mock('../src/lib/firebase', () => ({ auth: {} }));
 jest.mock('react-firebase-hooks/auth', () => ({ useAuthState: () => [{ uid: 'u0' }] }));
 
+
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,

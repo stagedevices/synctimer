@@ -1,5 +1,6 @@
 import { useState, type ChangeEvent } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
+
 import {
   Card,
   List,
@@ -30,6 +31,7 @@ import type { UserInfo } from '../hooks/useFriends';
 export function Contacts() {
   // track auth state to ensure currentUser is ready when actions run
   const [user] = useAuthState(auth);
+
   const reduce = useReducedMotion() ?? false;
   const {
     contacts,
@@ -50,6 +52,7 @@ export function Contacts() {
 
   const sendRequest = async () => {
     const uid = user?.uid;
+
     if (!uid || !selected) return;
     if (selected.id === uid) {
       message.error("Can't add yourself");
@@ -77,6 +80,7 @@ export function Contacts() {
 
   const accept = async (other: UserInfo) => {
     const uid = user?.uid;
+
     if (!uid) return;
     try {
       await setDoc(doc(db, 'users', uid, 'contacts', other.id), {});
@@ -91,6 +95,7 @@ export function Contacts() {
 
   const decline = async (other: UserInfo) => {
     const uid = user?.uid;
+
     if (!uid) return;
     try {
       await deleteDoc(doc(db, 'users', uid, 'incomingRequests', other.id));
@@ -102,6 +107,7 @@ export function Contacts() {
 
   const cancel = async (other: UserInfo) => {
     const uid = user?.uid;
+
     if (!uid) return;
     try {
       await deleteDoc(doc(db, 'users', uid, 'outgoingRequests', other.id));
@@ -113,6 +119,7 @@ export function Contacts() {
 
   const remove = async (other: UserInfo) => {
     const uid = user?.uid;
+
     if (!uid) return;
     Modal.confirm({
       title: 'Remove contact?',
