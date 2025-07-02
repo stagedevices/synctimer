@@ -173,6 +173,17 @@ export const getLinkToken = functions.https.onRequest((req, res) => {
   });
 });
 
+// 1️⃣ Soft-delete flag on group documents
+export const purgeDeletedGroups = functions.pubsub.schedule('every 24 hours').onRun(async () => {
+  const cutoff = Date.now() - 15 * 24 * 60 * 60 * 1000;
+  const snap = await db
+    .collection('groups')
+    .where('isDeleted', '==', true)
+    .where('deletedAt', '<=', admin.firestore.Timestamp.fromMillis(cutoff))
+    .get();
+  await Promise.all(snap.docs.map(d => d.ref.delete()));
+});
+
 // Firestore trigger: update memberCount for tags
 export const onTagMemberWrite = functions.firestore
   .document("tags/{tagId}/members/{uid}")

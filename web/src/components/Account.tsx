@@ -162,7 +162,9 @@ export function Account() {
   const [savingField, setSavingField] = useState<keyof typeof values | null>(null);
 
   const [tags, setTags] = useState<string[]>([]);
-  const [groups, setGroups] = useState<Array<{ id: string; name: string }>>([]);
+  const [groups, setGroups] = useState<
+    Array<{ id: string; name: string; isDeleted?: boolean; deletedAt?: Timestamp }>
+  >([]);
 
   const refs: Record<keyof typeof values, React.RefObject<HTMLDivElement | null>> = {
     displayName: useRef<HTMLDivElement | null>(null),
@@ -239,12 +241,14 @@ export function Account() {
     const ref = collection(db, 'users', uid, 'groups');
     const unsub = onSnapshot(ref, async snap => {
       const ids = snap.docs.map(d => d.id);
-      const results: Array<{ id: string; name: string }> = [];
+      const results: Array<{ id: string; name: string; isDeleted?: boolean; deletedAt?: Timestamp }> = [];
       for (const id of ids) {
         const g = await getDoc(doc(db, 'groups', id));
         if (g.exists()) {
-          const data = g.data() as { name: string };
-          results.push({ id, name: data.name });
+          const data = g.data() as any;
+          const within = data.isDeleted && data.deletedAt && (Date.now() - data.deletedAt.toMillis() <= 15 * 24 * 60 * 60 * 1000);
+          if (data.isDeleted && !within) continue;
+          results.push({ id, name: within ? 'Group Deleted' : data.name, isDeleted: data.isDeleted, deletedAt: data.deletedAt });
         }
       }
       setGroups(results);
@@ -667,7 +671,8 @@ export function Account() {
         </Card>
         <Card title="My Ensembles" className="glass-card" style={{ marginTop: 16 }}>
           {groups.map(g => (
-            <Tag key={g.id} style={{ marginBottom: 4 }}>
+            // 4️⃣ Exclude or placeholder-render deleted groups
+            <Tag key={g.id} style={{ marginBottom: 4, opacity: g.isDeleted ? 0.5 : 1 }}>
               {g.name}
             </Tag>
           ))}
