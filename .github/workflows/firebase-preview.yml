@@ -30,9 +30,4 @@ jobs:
                 npx firebase-tools hosting:channel:delete "$id" \
                   --project synctimer-dev-464400 --force --non-interactive || true
             done
-      - uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SYNCTIMER_DEV }}
-          projectId: synctimer-dev-464400
-          channelId: pr-${{ github.event.pull_request.number }}
-          expires: 7d
+     

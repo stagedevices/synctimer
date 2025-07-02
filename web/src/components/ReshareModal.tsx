@@ -23,10 +23,9 @@ export function ReshareModal({ open, file, onClose }: ReshareModalProps) {
     if (!uid || !open) return;
     (async () => {
       try {
-        const contactsSnap = await getDocs(collection(db, 'users', uid, 'contacts'));
+        // only groups are valid destinations
         const groupsSnap = await getDocs(collection(db, 'users', uid, 'groups'));
         const opts: Option[] = [];
-        contactsSnap.forEach(d => opts.push({ id: d.id, label: d.id }));
         groupsSnap.forEach(d => opts.push({ id: d.id, label: d.id }));
         setOptions(opts);
       } catch (e) {
@@ -90,6 +89,9 @@ export function ReshareModal({ open, file, onClose }: ReshareModalProps) {
           onChange={vals => setSelected(vals)}
         />
       )}
+      <div style={{ marginTop: 8, fontSize: '0.8rem', textAlign: 'center' }}>
+        Use the Discover page to join tags – files can only be sent to groups.
+      </div>
     </Modal>
   );
 }
