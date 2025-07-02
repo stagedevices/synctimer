@@ -9,6 +9,10 @@ cd web && pnpm install
 cd ../functions && pnpm install
 ```
 
+If you encounter a Vite error like `Failed to resolve import "yaml"`, double
+check that `pnpm install` was run inside the `web` directory so that the browser
+build of `yaml` gets installed under `web/node_modules`.
+
 Once dependencies are installed you can lint and build both packages with:
 
 ```bash
