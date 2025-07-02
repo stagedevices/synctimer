@@ -4,6 +4,7 @@ import { fetch } from "undici";
 import cors from "cors";
 import { FieldValue } from "firebase-admin/firestore";
 import { randomUUID } from "crypto";
+import YAML from "yaml";
 
 // Export email change functions
 export * from "./email";
@@ -13,6 +14,51 @@ const db = admin.firestore();
 
 // default CORS allow-all
 const corsHandler = cors({ origin: true });
+
+export async function storeParts(
+  fileId: string,
+  title: string,
+  yamlText: string,
+  ownerUid: string,
+  database: FirebaseFirestore.Firestore = db,
+): Promise<void> {
+  const fileRef = database.collection("files").doc(fileId);
+  await fileRef.set({
+    title,
+    createdAt: FieldValue.serverTimestamp(),
+    ownerUid,
+  });
+  const events = YAML.parse(yamlText) as Array<any>;
+  const measures = Math.max(
+    0,
+    ...events.map((e: any) => e.bar ?? 0),
+  );
+  await fileRef.collection("parts").add({
+    partName: "Full Score",
+    instrument: "Full Score",
+    measures,
+    yaml: yamlText,
+    fullScore: true,
+  });
+  const instruments = Array.from(
+    new Set(
+      events.flatMap((e: any) => (e.instruments ? e.instruments[0] : null)).filter(Boolean),
+    ),
+  );
+  for (const inst of instruments) {
+    const partEvents = events.filter((e: any) =>
+      (e.instruments || []).includes(inst),
+    );
+    const partYaml = YAML.stringify(partEvents);
+    await fileRef.collection("parts").add({
+      partName: inst,
+      instrument: inst,
+      measures,
+      yaml: partYaml,
+      fullScore: false,
+    });
+  }
+}
 
 function getUidFromHeader(req: functions.https.Request): string | null {
   const auth = req.header("Authorization") || "";
@@ -48,22 +94,13 @@ export const parseUpload = functions.https.onRequest((req, res) => {
         errorMessage: parserRes.ok ? null : yaml,
       });
 
-      // 3) store under users/{uid}/files
+      // 3) store file & parts
       if (parserRes.ok && uid) {
         const rawName = req.get("X-File-Name") || "out.xml";
-        const title = rawName.replace(/\.xml$/i, ".yaml");
-
-        await db
-          .collection("users")
-          .doc(uid)
-          .collection("files")
-          .add({
-            title,
-            yaml,
-            createdAt: FieldValue.serverTimestamp(),
-            size: yaml.length,
-            status: "ready",
-          });
+        const title = rawName.replace(/\.xml$/i, "");
+        const fileId = randomUUID();
+        await storeParts(fileId, title, yaml, uid);
+        res.set("X-File-Id", fileId);
       }
 
       // 4) return
@@ -165,6 +202,67 @@ export const onGroupMemberWrite = functions.firestore
     await db.doc(`groups/${groupId}`).update({
       memberCount: FieldValue.increment(delta),
     });
+    return null;
+  });
+
+// Firestore trigger: send notifications on new assignments
+export const onAssignmentCreate = functions.firestore
+  .document("assignments/{assignmentId}")
+  .onCreate(async (snap, context) => {
+    const data = snap.data() as any;
+    const id = context.params.assignmentId;
+    for (const rec of data.recipients || []) {
+      if (rec.type === "user") {
+        await db
+          .collection("users")
+          .doc(rec.uid)
+          .collection("assignments")
+          .doc(id)
+          .set(data);
+        await db
+          .collection("users")
+          .doc(rec.uid)
+          .collection("notifications")
+          .add({
+            assignmentId: id,
+            fromUid: data.assignedBy,
+            fileId: data.fileId,
+            partIds: data.partIds,
+            assignedAt: data.assignedAt,
+          });
+      } else if (rec.type === "group") {
+        const members = await db
+          .collection("groups")
+          .doc(rec.groupId)
+          .collection("members")
+          .get();
+        await Promise.all(
+          members.docs.map((m) =>
+            db
+              .collection("users")
+              .doc(m.id)
+              .collection("assignments")
+              .doc(id)
+              .set({ ...data, groupId: rec.groupId, assignmentName: rec.assignmentName })
+          )
+        );
+        await Promise.all(
+          members.docs.map((m) =>
+            db
+              .collection("users")
+              .doc(m.id)
+              .collection("notifications")
+              .add({
+                assignmentId: id,
+                fromUid: data.assignedBy,
+                fileId: data.fileId,
+                partIds: data.partIds,
+                assignedAt: data.assignedAt,
+              })
+          )
+        );
+      }
+    }
     return null;
   });
 
