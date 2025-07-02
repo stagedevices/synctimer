@@ -45,6 +45,9 @@ interface Group {
   memberCount: number;
   status: 'active' | 'archived';
   archivedAt?: Timestamp;
+  // 1️⃣ Soft-delete flag on group documents
+  isDeleted?: boolean;
+  deletedAt?: Timestamp;
 }
 
 interface MemberInfo {
@@ -87,6 +90,7 @@ export function GroupDetail() {
   const [announceContent, setAnnounceContent] = useState('');
   const [posting, setPosting] = useState(false);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [sentInvites, setSentInvites] = useState<any[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('members');
   const [safetyOn, setSafetyOn] = useState(false);
@@ -101,7 +105,17 @@ export function GroupDetail() {
     const gRef = doc(db, 'groups', groupId);
     const unsubGroup = onSnapshot(gRef, snap => {
       if (snap.exists()) {
-        setGroup({ id: snap.id, ...(snap.data() as Omit<Group, 'id'>) });
+        const data = snap.data() as Omit<Group, 'id'>;
+        setGroup({ id: snap.id, ...data });
+        // 3️⃣ Membership list and owner inclusion
+        getDoc(doc(db, 'groups', groupId, 'members', data.managerUid)).then(ms => {
+          if (!ms.exists()) {
+            setDoc(doc(db, 'groups', groupId, 'members', data.managerUid), {
+              role: 'owner',
+              joinedAt: serverTimestamp(),
+            });
+          }
+        });
       } else {
         navigate('/groups');
       }
@@ -155,6 +169,19 @@ export function GroupDetail() {
     return unsub;
   }, [groupId]);
 
+  // 2️⃣ Invitations subcollection scaffolding
+  useEffect(() => {
+    if (!groupId) return;
+    const q = collection(db, 'groups', groupId, 'invites');
+    const unsub = onSnapshot(q, snap => {
+      const arr = snap.docs
+        .map(d => ({ id: d.id, ...(d.data() as any) }))
+        .filter(i => i.status === 'pending');
+      setSentInvites(arr);
+    });
+    return unsub;
+  }, [groupId]);
+
   useEffect(() => {
     const tab = searchParams.get('tab') || 'members';
     const allowed = ['members', 'announcements'];
@@ -193,7 +220,15 @@ export function GroupDetail() {
     if (!groupId || !uid) return;
     setInviting(userInfo.id);
     try {
-      await addDoc(collection(db, 'users', userInfo.id, 'invites'), {
+      // 2️⃣ Invitations subcollection scaffolding
+      const gRef = await addDoc(collection(db, 'groups', groupId, 'invites'), {
+        inviterUid: uid,
+        inviteeEmailOrUid: inviteTerm,
+        inviteeUid: userInfo.id,
+        createdAt: serverTimestamp(),
+        status: 'pending',
+      });
+      await setDoc(doc(db, 'users', userInfo.id, 'invites', gRef.id), {
         groupId,
         invitedByUid: uid,
         invitedAt: serverTimestamp(),
@@ -203,6 +238,14 @@ export function GroupDetail() {
       toast.error(`Could not send invite: ${(e as Error).message}`);
     } finally {
       setInviting(null);
+    }
+  };
+
+  const revokeInvite = async (invId: string, inviteeUid?: string) => {
+    if (!groupId) return;
+    await deleteDoc(doc(db, 'groups', groupId, 'invites', invId));
+    if (inviteeUid) {
+      await deleteDoc(doc(db, 'users', inviteeUid, 'invites', invId)).catch(() => {});
     }
   };
 
@@ -224,6 +267,7 @@ export function GroupDetail() {
   };
 
 
+  // 1️⃣ Soft-delete flag on group documents
   const archiveGroup = async () => {
     if (!groupId) return;
     if (!isOwner) {
@@ -231,10 +275,10 @@ export function GroupDetail() {
       return;
     }
     await updateDoc(doc(db, 'groups', groupId), {
-      status: 'archived',
-      archivedAt: serverTimestamp(),
+      isDeleted: true,
+      deletedAt: serverTimestamp(),
     });
-    toast.success('Group archived');
+    toast.success('Group deleted');
     navigate('/groups');
   };
 
@@ -378,6 +422,24 @@ export function GroupDetail() {
           )}
         />
       )}
+      <List
+        header="Pending Invites"
+        dataSource={sentInvites}
+        renderItem={inv => (
+          <List.Item
+            actions={[
+              <Button key="rev" danger onClick={() => revokeInvite(inv.id, inv.inviteeUid)}>
+                Revoke
+              </Button>,
+            ]}
+          >
+            <List.Item.Meta
+              title={inv.inviteeEmailOrUid}
+              description={inv.createdAt?.toDate().toLocaleDateString()}
+            />
+          </List.Item>
+        )}
+      />
     </motion.div>
   );
 
