@@ -17,10 +17,7 @@ export const initiateEmailChange = functions.https.onCall(
     context: functions.https.CallableContext,
   ) => {
     const uid = context.auth?.uid;
-    const { newEmail, currentPassword } = data as {
-    newEmail?: string;
-    currentPassword?: string;
-  };
+    const { newEmail } = data as { newEmail?: string };
 
     if (!uid) {
       throw new functions.https.HttpsError(
