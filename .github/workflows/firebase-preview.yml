@@ -11,6 +11,28 @@ jobs:
         with: { version: 9 }
       - run: pnpm --dir web install
       - run: pnpm --filter web run build
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_SYNCTIMER_DEV }}'
+      - name: Remove stale preview channels
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const { execSync } = require('child_process');
+            const channels = JSON.parse(execSync('npx --yes firebase-tools@latest hosting:channel:list --project synctimer-dev-464400 --json', { encoding: 'utf8' }));
+            const openPrs = await github.paginate(github.rest.pulls.list, { owner: context.repo.owner, repo: context.repo.repo, state: 'open' });
+            const openNumbers = openPrs.map(pr => pr.number);
+            for (const ch of channels.result) {
+              const match = ch.name.match(/channels\/(pr-\d+)/);
+              if (match) {
+                const num = parseInt(match[1].slice(3), 10);
+                if (!openNumbers.includes(num)) {
+                  execSync(`npx --yes firebase-tools@latest hosting:channel:delete ${match[1]} --project synctimer-dev-464400 --force`, { stdio: 'inherit' });
+                }
+              }
+            }
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SYNCTIMER_DEV }}
