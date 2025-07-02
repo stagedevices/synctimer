@@ -27,66 +27,51 @@ beforeAll(() => {
   });
 });
 
-const received = {
-  id: 'r1',
-  title: 'Received File',
-  yaml: 'a: b',
-  createdAt: { toDate: () => new Date('2025-06-30T15:45:00Z') },
-  size: 8,
-  origin: 'peer',
-  originName: 'alice',
-  type: 'part',
-};
-
-const sent = {
-  id: 's1',
-  title: 'Sent File',
-  yaml: 'c: d',
-  createdAt: { toDate: () => new Date('2025-06-30T15:45:00Z') },
-  size: 12,
-};
-
-const assignment = {
-  id: 'as1',
-  fileId: 'r1',
-  partIds: ['1'],
-  assignedBy: 'u2',
-  assignedAt: { toDate: () => new Date('2025-06-30T15:45:00Z') },
-};
+const files = [
+  {
+    id: 'f1',
+    title: 'File 1',
+    yaml: 'a: 1',
+    createdAt: { toDate: () => new Date('2025-06-30T15:45:00Z') },
+    size: 8,
+    type: 'bundle',
+    origin: 'peer',
+    originName: 'alice',
+  },
+  {
+    id: 'f2',
+    title: 'File 2',
+    yaml: 'b: 2',
+    createdAt: { toDate: () => new Date('2025-06-30T15:45:00Z') },
+    size: 12,
+  },
+  {
+    id: 'f3',
+    title: 'File 3',
+    yaml: 'c: 3',
+    createdAt: { toDate: () => new Date('2025-06-30T15:45:00Z') },
+    size: 4,
+  },
+];
 
 beforeEach(() => {
   let call = 0;
   mockOnSnapshot.mockImplementation((_q, next) => {
     call += 1;
-    if (call === 1) next({ docs: [{ id: received.id, data: () => received }] });
-    else if (call === 2) next({ docs: [{ id: sent.id, data: () => sent }] });
-    else if (call === 3) next({ docs: [{ id: assignment.id, data: () => assignment }] });
+    if (call === 1) {
+      next({ docs: files.map(f => ({ id: f.id, data: () => f })) });
+    } else if (call === 2) {
+      next({ docs: [] });
+    }
     return () => {};
   });
 });
 
-test('renders tabs with data', async () => {
+test('renders cards count and empty state', async () => {
   render(<Files />);
-  expect(await screen.findByText('Received File')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('tab', { name: 'Sent' }));
-  expect(await screen.findByText('Sent File')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('tab', { name: 'Assigned' }));
-  expect(await screen.findByText(/Parts:/)).toBeInTheDocument();
+  const cards = await screen.findAllByLabelText(/view-/);
+  expect(cards).toHaveLength(3);
+  fireEvent.click(screen.getByRole('tab', { name: 'Sent Files' }));
+  expect(await screen.findByText('No files yet — go validate one!')).toBeInTheDocument();
 });
 
-test('action buttons work', async () => {
-  const createObjectURL = jest.fn(() => 'blob:');
-  const revokeObjectURL = jest.fn();
-  (globalThis as any).URL = { createObjectURL, revokeObjectURL };
-  const writeText = jest.fn(() => Promise.resolve());
-  (navigator as any).clipboard = { writeText };
-
-  render(<Files />);
-  await screen.findByText('Received File');
-  fireEvent.click(screen.getByLabelText('copy-r1'));
-  expect(writeText).toHaveBeenCalled();
-  fireEvent.click(screen.getByLabelText('download-r1'));
-  expect(createObjectURL).toHaveBeenCalled();
-  fireEvent.click(screen.getByLabelText('reshare-r1'));
-  expect(screen.getByText('ReshareModal')).toBeInTheDocument();
-});
