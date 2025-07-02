@@ -1,0 +1,16 @@
+name: Cleanup Firebase Preview
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_SYNCTIMER_DEV }}'
+      - name: Delete preview channel
+        run: npx firebase-tools@latest hosting:channel:delete pr-${{ github.event.pull_request.number }} --project synctimer-dev-464400 --force
