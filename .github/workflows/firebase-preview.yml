@@ -11,8 +11,28 @@ jobs:
         with: { version: 9 }
       - run: pnpm --dir web install
       - run: pnpm --filter web run build
+      - name: Clean previous preview
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/service-account.json
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SYNCTIMER_DEV }}
+        run: |
+          echo "$FIREBASE_SERVICE_ACCOUNT" > "$GOOGLE_APPLICATION_CREDENTIALS"
+          npx firebase-tools hosting:channel:delete pr-${{ github.event.pull_request.number }} \
+            --project synctimer-dev-464400 --force --non-interactive || true
+      - name: Purge old preview channels
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/service-account.json
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SYNCTIMER_DEV }}
+        run: |
+          echo "$FIREBASE_SERVICE_ACCOUNT" > "$GOOGLE_APPLICATION_CREDENTIALS"
+          npx firebase-tools hosting:channel:list --project synctimer-dev-464400 --json \
+            | jq -r '.result[].name' | grep '/channels/pr-' | sed 's#.*/##' | while read id; do
+                npx firebase-tools hosting:channel:delete "$id" \
+                  --project synctimer-dev-464400 --force --non-interactive || true
+            done
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SYNCTIMER_DEV }}
           projectId: synctimer-dev-464400
           channelId: pr-${{ github.event.pull_request.number }}
+          expires: 7d
