@@ -1,4 +1,6 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use roxmltree::Document;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Event {
@@ -10,33 +12,47 @@ pub struct Event {
 }
 
 pub fn parse_musicxml(xml: &str) -> anyhow::Result<Vec<Event>> {
-    use quick_xml::{events::Event as XEvent, Reader};
-    let mut reader = Reader::from_str(xml);   // ← this line is Rust, not shell
-    //reader.trim_text(true);                   // ← only one “m” in trim
+    // Use roxmltree to easily traverse the MusicXML document
+    let doc = Document::parse(xml)?;
 
-    let mut buf = Vec::new();
+    // Map part IDs (e.g. "P1") to their human-readable names (e.g. "Violin I")
+    let mut part_names: HashMap<String, String> = HashMap::new();
+    for score_part in doc.descendants().filter(|n| n.has_tag_name("score-part")) {
+        if let Some(id) = score_part.attribute("id") {
+            if let Some(name_node) = score_part
+                .children()
+                .find(|c| c.has_tag_name("part-name"))
+            {
+                if let Some(name) = name_node.text() {
+                    part_names.insert(id.to_string(), name.to_string());
+                }
+            }
+        }
+    }
+
     let mut events = Vec::new();
-    let mut counter = 0;
+    let mut counter = 0u32;
 
-    loop {
-        match reader.read_event_into(&mut buf)? {
-    // Catch both <measure>…</measure> and self-closing <measure …/>
-    XEvent::Start(e) | XEvent::Empty(e) if e.name().as_ref() == b"measure" => {
-        counter += 1;
-        events.push(Event {
-            id: format!("M{}", counter),
-            bar: Some(counter),
-            beat: Some(1.0),
-            time_ms: None,
-            instruments: vec!["Unknown".into()],
-        });
-    }
-    XEvent::Eof => break,
-    _ => {}
-}
+    // Iterate through all <part> sections and record one Event per <measure>
+    for part in doc.descendants().filter(|n| n.has_tag_name("part")) {
+        let part_id = part.attribute("id").unwrap_or("");
+        let instrument = part_names
+            .get(part_id)
+            .cloned()
+            .unwrap_or_else(|| "Unknown".to_string());
 
-        buf.clear();
+        for _measure in part.children().filter(|n| n.has_tag_name("measure")) {
+            counter += 1;
+            events.push(Event {
+                id: format!("M{}", counter),
+                bar: Some(counter),
+                beat: Some(1.0),
+                time_ms: None,
+                instruments: vec![instrument.clone()],
+            });
+        }
     }
+
     Ok(events)
 }
 

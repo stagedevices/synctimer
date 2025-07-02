@@ -2,12 +2,13 @@
 
 This project contains a React + TypeScript web app as well as Firebase Cloud Functions.
 
-Before running any `pnpm` commands, install dependencies for each package:
+This repository now uses a `pnpm-workspace.yaml` so running `pnpm install` from
+the repository root will install dependencies for both the `web` and
+`functions` packages.
 
-```bash
-cd web && pnpm install
-cd ../functions && pnpm install
-```
+If you encounter a Vite error like `Failed to resolve import "yaml"`, ensure
+that dependencies were installed via `pnpm install` from the repository root so
+the browser build of `yaml` is present under `web/node_modules`.
 
 Once dependencies are installed you can lint and build both packages with:
 
