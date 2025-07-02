@@ -11,8 +11,38 @@ jobs:
         with: { version: 9 }
       - run: pnpm --dir web install
       - run: pnpm --filter web run build
-      - uses: FirebaseExtended/action-hosting-deploy@v0
+      - id: auth
+        uses: google-github-actions/auth@v2
         with:
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SYNCTIMER_DEV }}
-          projectId: synctimer-dev-464400
-          channelId: pr-${{ github.event.pull_request.number }}
+          credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_SYNCTIMER_DEV }}'
+      - name: Remove stale preview channels
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const { execSync } = require('child_process');
+            const output = JSON.parse(execSync(
+              'npx --yes firebase-tools@latest hosting:channel:list --project synctimer-dev-464400 --json',
+              { encoding: 'utf8' }
+            ));
+            const channelList = Array.isArray(output.result)
+              ? output.result
+              : output.channels || [];
+            const openPrs = await github.paginate(github.rest.pulls.list, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open'
+            });
+            const openNumbers = openPrs.map(pr => pr.number);
+            for (const ch of channelList) {
+              const match = ch.name.match(/channels\/(pr-\d+)/);
+              if (match) {
+                const num = parseInt(match[1].slice(3), 10);
+                if (!openNumbers.includes(num)) {
+                  execSync(
+                    `npx --yes firebase-tools@latest hosting:channel:delete ${match[1]} --project synctimer-dev-464400 --force`,
+                    { stdio: 'inherit' }
+                  );
+                }
+              }
+            }

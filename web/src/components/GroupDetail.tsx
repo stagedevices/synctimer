@@ -71,9 +71,10 @@ interface Announcement {
 
 interface SentInvite {
   id: string;
-  invitedBy: string;
+  inviterUid: string;
+  inviteeUid: string;
+  groupId: string;
   invitedAt?: Timestamp;
-  targetUid: string;
 }
 
 
@@ -235,10 +236,11 @@ export function GroupDetail() {
       }
       const targetUid = (snap.data() as { uid: string }).uid;
       // Send invite to Firestore
-      await setDoc(doc(db, 'groups', groupId, 'invites', targetUid), {
-        invitedBy: uid,
+      await addDoc(collection(db, 'groups', groupId, 'invites'), {
+        inviterUid: uid,
+        inviteeUid: targetUid,
+        groupId,
         invitedAt: serverTimestamp(),
-        targetUid,
       });
       toast.success(`Invitation sent to @${handle}`);
       setInviteTerm('');
@@ -249,9 +251,9 @@ export function GroupDetail() {
     }
   };
 
-  const revokeInvite = async (inviteeUid: string) => {
+  const revokeInvite = async (inviteId: string) => {
     if (!groupId) return;
-    await deleteDoc(doc(db, 'groups', groupId, 'invites', inviteeUid));
+    await deleteDoc(doc(db, 'groups', groupId, 'invites', inviteId));
   };
 
   const postAnnouncement = async () => {
@@ -414,7 +416,7 @@ export function GroupDetail() {
             actions={[<Button key="rev" danger onClick={() => revokeInvite(inv.id)}>Revoke</Button>]}
           >
             <List.Item.Meta
-              title={`@${inv.id}`}
+              title={`@${inv.inviteeUid}`}
               description={inv.invitedAt?.toDate().toLocaleDateString()}
             />
           </List.Item>
