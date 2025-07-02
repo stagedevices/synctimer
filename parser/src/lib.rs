@@ -15,16 +15,19 @@ pub fn parse_musicxml(xml: &str) -> anyhow::Result<Vec<Event>> {
     // Use roxmltree to easily traverse the MusicXML document
     let doc = Document::parse(xml)?;
 
+    // Build part-name map
     // Map part IDs (e.g. "P1") to their human-readable names (e.g. "Violin I")
     let mut part_names: HashMap<String, String> = HashMap::new();
-    for score_part in doc.descendants().filter(|n| n.has_tag_name("score-part")) {
-        if let Some(id) = score_part.attribute("id") {
-            if let Some(name_node) = score_part
-                .children()
-                .find(|c| c.has_tag_name("part-name"))
-            {
-                if let Some(name) = name_node.text() {
-                    part_names.insert(id.to_string(), name.to_string());
+    if let Some(part_list) = doc.descendants().find(|n| n.has_tag_name("part-list")) {
+        for score_part in part_list.children().filter(|n| n.has_tag_name("score-part")) {
+            if let Some(id) = score_part.attribute("id") {
+                if let Some(name_node) = score_part
+                    .children()
+                    .find(|c| c.has_tag_name("part-name"))
+                {
+                    if let Some(name) = name_node.text() {
+                        part_names.insert(id.to_string(), name.to_string());
+                    }
                 }
             }
         }
@@ -35,6 +38,7 @@ pub fn parse_musicxml(xml: &str) -> anyhow::Result<Vec<Event>> {
 
     // Iterate through all <part> sections and record one Event per <measure>
     for part in doc.descendants().filter(|n| n.has_tag_name("part")) {
+        // Lookup part name when emitting YAML
         let part_id = part.attribute("id").unwrap_or("");
         let instrument = part_names
             .get(part_id)

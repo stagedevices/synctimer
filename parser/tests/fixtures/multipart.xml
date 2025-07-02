@@ -1,0 +1,16 @@
+<score-partwise version="3.1">
+  <part-list>
+    <score-part id="P1"><part-name>Violin I</part-name></score-part>
+    <score-part id="P2"><part-name>Violin II</part-name></score-part>
+    <score-part id="P3"><part-name>Cello</part-name></score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1"/>
+  </part>
+  <part id="P2">
+    <measure number="1"/>
+  </part>
+  <part id="P3">
+    <measure number="1"/>
+  </part>
+</score-partwise>
