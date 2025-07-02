@@ -1,0 +1,9 @@
+{
+  "name": "synctimer-root",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "seed": "ts-node scripts/seedFirestore.ts"
+  }
+}
+
