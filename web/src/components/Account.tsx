@@ -162,7 +162,9 @@ export function Account() {
   const [savingField, setSavingField] = useState<keyof typeof values | null>(null);
 
   const [tags, setTags] = useState<string[]>([]);
-  const [groups, setGroups] = useState<Array<{ id: string; name: string }>>([]);
+  const [groups, setGroups] = useState<
+    Array<{ id: string; name: string; isDeleted?: boolean; deletedAt?: Timestamp }>
+  >([]);
 
   const refs: Record<keyof typeof values, React.RefObject<HTMLDivElement | null>> = {
     displayName: useRef<HTMLDivElement | null>(null),
