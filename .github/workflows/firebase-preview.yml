@@ -21,15 +21,28 @@ jobs:
           github-token: ${{ github.token }}
           script: |
             const { execSync } = require('child_process');
-            const channels = JSON.parse(execSync('npx --yes firebase-tools@latest hosting:channel:list --project synctimer-dev-464400 --json', { encoding: 'utf8' }));
-            const openPrs = await github.paginate(github.rest.pulls.list, { owner: context.repo.owner, repo: context.repo.repo, state: 'open' });
+            const output = JSON.parse(execSync(
+              'npx --yes firebase-tools@latest hosting:channel:list --project synctimer-dev-464400 --json',
+              { encoding: 'utf8' }
+            ));
+            const channelList = Array.isArray(output.result)
+              ? output.result
+              : output.channels || [];
+            const openPrs = await github.paginate(github.rest.pulls.list, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open'
+            });
             const openNumbers = openPrs.map(pr => pr.number);
-            for (const ch of channels.result) {
+            for (const ch of channelList) {
               const match = ch.name.match(/channels\/(pr-\d+)/);
               if (match) {
                 const num = parseInt(match[1].slice(3), 10);
                 if (!openNumbers.includes(num)) {
-                  execSync(`npx --yes firebase-tools@latest hosting:channel:delete ${match[1]} --project synctimer-dev-464400 --force`, { stdio: 'inherit' });
+                  execSync(
+                    `npx --yes firebase-tools@latest hosting:channel:delete ${match[1]} --project synctimer-dev-464400 --force`,
+                    { stdio: 'inherit' }
+                  );
                 }
               }
             }
