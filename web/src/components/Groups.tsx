@@ -21,7 +21,7 @@ import {
   where,
   serverTimestamp,
   getDoc,
-  documentId,
+
   type Timestamp,
 } from 'firebase/firestore';
 
@@ -104,15 +104,18 @@ export function Groups() {
 
   useEffect(() => {
     if (!uid) return;
+    // Fetch pending invites
     const q = query(
       collectionGroup(db, 'invites'),
-      where(documentId(), '==', uid),
+      where('targetUid', '==', uid),
+
       where('invitedBy', '!=', uid),
     );
     const unsub = onSnapshot(q, async snap => {
       const arr: Invite[] = [];
       for (const d of snap.docs) {
-        const data = d.data() as { invitedBy: string; invitedAt: Timestamp };
+        const data = d.data() as { invitedBy: string; invitedAt: Timestamp; groupId?: string };
+
         const groupId = d.ref.parent.parent?.id;
         if (!groupId) continue;
         // Fetch group and inviter info
@@ -197,6 +200,7 @@ export function Groups() {
     }
   };
 
+  // Decline invite handler
   const declineInvite = async (inv: Invite) => {
     if (!uid) return;
     try {

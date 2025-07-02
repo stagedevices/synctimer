@@ -69,6 +69,13 @@ interface Announcement {
   authorPhotoURL?: string | null;
 }
 
+interface SentInvite {
+  id: string;
+  invitedBy: string;
+  invitedAt?: Timestamp;
+  targetUid: string;
+}
+
 
 export function GroupDetail() {
   const { groupId } = useParams<{ groupId: string }>();
@@ -87,7 +94,7 @@ export function GroupDetail() {
   const [announceContent, setAnnounceContent] = useState('');
   const [posting, setPosting] = useState(false);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [sentInvites, setSentInvites] = useState<any[]>([]);
+  const [sentInvites, setSentInvites] = useState<SentInvite[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('members');
   const [safetyOn, setSafetyOn] = useState(false);
@@ -166,12 +173,16 @@ export function GroupDetail() {
     return unsub;
   }, [groupId]);
 
-  // 2️⃣ Invitations subcollection scaffolding
+  // Fetch pending invites
   useEffect(() => {
     if (!groupId) return;
     const q = collection(db, 'groups', groupId, 'invites');
     const unsub = onSnapshot(q, snap => {
-      const arr = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+      const arr: SentInvite[] = snap.docs.map(d => ({
+        id: d.id,
+        ...(d.data() as Omit<SentInvite, 'id'>),
+      }));
+
       setSentInvites(arr);
     });
     return unsub;
@@ -227,6 +238,7 @@ export function GroupDetail() {
       await setDoc(doc(db, 'groups', groupId, 'invites', targetUid), {
         invitedBy: uid,
         invitedAt: serverTimestamp(),
+        targetUid,
       });
       toast.success(`Invitation sent to @${handle}`);
       setInviteTerm('');
