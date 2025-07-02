@@ -19,6 +19,19 @@
       "npm --prefix \"$RESOURCE_DIR\" run build"
     ]
   },
+
+  "extensions": {
+    "instances": {
+      "emailTrigger": {
+        "source": "firebase/extensions/trigger-email@latest",
+        "params": {
+          "RECIPIENT_COLLECTION_PATH": "emailChangeRequests/{token}",
+          "EMAIL_SUBJECT": "SyncTimer Email Change Verification",
+          "EMAIL_BODY": "Click here to verify your new email: https://<YOUR_DOMAIN>/verify-email?token={{token}}"
+        }
+      }
+    }
+  },
   "hosting": {
     "public": "web/dist",
     "ignore": ["firebase.json","**/.*","**/node_modules/**"],
