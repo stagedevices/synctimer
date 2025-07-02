@@ -45,8 +45,11 @@ export function UploadValidate() {
   }, [dark]);
 
   const [xmlText, setXmlText] = useState("");
+  // YAML returned from the parser for the entire score
   const [yaml, setYaml] = useState<string | null>(null);
+  // Individual part YAML slices detected from the full result
   const [parts, setParts] = useState<{ name: string; yaml: string }[]>([]);
+  // Which tab is currently active ("full" or a part name)
   const [activeTab, setActiveTab] = useState('full');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -88,7 +91,8 @@ export function UploadValidate() {
         500
       );
       setYaml(result);
-      // Split YAML into individual parts if applicable
+      // Split the parser result by instrument name so each part can be viewed
+      // individually
       try {
         const events = parseYaml(result) as Array<any>;
 
@@ -138,8 +142,11 @@ export function UploadValidate() {
     }
   };
 
+  // Endpoint for uploading parsed YAML directly into Firestore via Cloud Function
   const PARSE_URL = `https://us-central1-${import.meta.env.VITE_FIREBASE_PROJECT_ID}.cloudfunctions.net/parseUpload`;
 
+  // Upload the currently selected YAML (full score or part) to the user's
+  // `/files` collection via the parseUpload Cloud Function
   const handleSendToFiles = async () => {
     if (!yaml) return;
     const uid = auth.currentUser?.uid;
@@ -251,6 +258,7 @@ export function UploadValidate() {
               {yaml ? (
                 <>
                   <div style={{ flex: 1, overflow: 'auto' }}>
+                    {/* Full score plus one tab per part */}
                     <Tabs
                       destroyInactiveTabPane={false}
                       activeKey={activeTab}
@@ -285,6 +293,7 @@ export function UploadValidate() {
                       ]}
                     />
                   </div>
+                  {/* Filename field and action buttons */}
                   <div style={{ marginTop: '1rem', textAlign: 'right' }}>
                     <Input
                       value={filename}
@@ -292,20 +301,19 @@ export function UploadValidate() {
                       style={{ width: '60%', marginRight: '1rem', fontSize: '1.2rem' }}
                     />
                     <Button icon={<CopyOutlined />} onClick={handleCopy} style={{ marginRight: '0.5rem' }} />
-                    <Button icon={<DownloadOutlined />} onClick={handleDownload} />
+                    <Button icon={<DownloadOutlined />} onClick={handleDownload} style={{ marginRight: '0.5rem' }} />
+                    <Button
+                      type="primary"
+                      size="large"
+                      style={{
+                        backgroundColor: '#70C73C',
+                        borderRadius: '1rem',
+                      }}
+                      onClick={handleSendToFiles}
+                    >
+                      Send to My Files
+                    </Button>
                   </div>
-                  <Button
-                    type="primary"
-                    size="large"
-                    style={{
-                      backgroundColor: '#70C73C',
-                      borderRadius: '1rem',
-                      marginTop: '1rem',
-                    }}
-                    onClick={handleSendToFiles}
-                  >
-                    Send to My Files
-                  </Button>
                   </>
                 ) : (
                   <div style={{ textAlign: 'center', color: '#888', padding: '2rem', fontSize: '1.2rem' }}>
