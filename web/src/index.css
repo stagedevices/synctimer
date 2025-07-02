@@ -31,7 +31,11 @@ body {
   min-width: 320px;
   min-height: 100vh;
   display: flex;
-  background: linear-gradient(to bottom, #70c73c, #4a8a2e);
+  background: linear-gradient(
+    to bottom,
+    rgba(112, 199, 60, 0.6),
+    rgba(74, 138, 46, 0.6)
+  );
   position: relative;
 }
 

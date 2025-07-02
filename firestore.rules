@@ -15,6 +15,7 @@ service cloud.firestore {
     match /tags/{tagId}/members/{memberId} {
       allow read: if true;
       allow write: if false;
+
     }
     match /{document=**} {
       // This rule allows anyone with your database reference to view, edit,
