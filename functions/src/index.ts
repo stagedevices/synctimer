@@ -199,7 +199,8 @@ export const purgeDeletedGroups = onSchedule("every 24 hours", async () => {
 
 // Firestore trigger: update memberCount for tags
 export const onTagMemberWrite = onDocumentWritten(
-  "tags/{tagId}/members/{uid}",
+  { document: "tags/{tagId}/members/{uid}", region: "us-central1" },
+
   async (event) => {
     const change = event.data;
     const tagId = event.params.tagId;
@@ -216,7 +217,8 @@ export const onTagMemberWrite = onDocumentWritten(
 
 // Firestore trigger: update memberCount for groups
 export const onGroupMemberWrite = onDocumentWritten(
-  "groups/{groupId}/members/{uid}",
+  { document: "groups/{groupId}/members/{uid}", region: "us-central1" },
+
   async (event) => {
     const change = event.data;
     const groupId = event.params.groupId;
@@ -233,7 +235,8 @@ export const onGroupMemberWrite = onDocumentWritten(
 
 // Firestore trigger: send notifications on new assignments
 export const onAssignmentCreate = onDocumentCreated(
-  "assignments/{assignmentId}",
+  { document: "assignments/{assignmentId}", region: "us-central1" },
+
   async (event) => {
     const snap = event.data;
     if (!snap) return null;
