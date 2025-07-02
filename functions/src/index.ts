@@ -6,10 +6,10 @@ import { FieldValue } from "firebase-admin/firestore";
 import { randomUUID } from "crypto";
 import YAML from "yaml";
 
+admin.initializeApp();
+
 // Export email change functions
 export * from "./email";
-
-admin.initializeApp();
 const db = admin.firestore();
 
 // default CORS allow-all
