@@ -292,20 +292,19 @@ export function UploadValidate() {
                       style={{ width: '60%', marginRight: '1rem', fontSize: '1.2rem' }}
                     />
                     <Button icon={<CopyOutlined />} onClick={handleCopy} style={{ marginRight: '0.5rem' }} />
-                    <Button icon={<DownloadOutlined />} onClick={handleDownload} />
+                    <Button icon={<DownloadOutlined />} onClick={handleDownload} style={{ marginRight: '0.5rem' }} />
+                    <Button
+                      type="primary"
+                      size="large"
+                      style={{
+                        backgroundColor: '#70C73C',
+                        borderRadius: '1rem',
+                      }}
+                      onClick={handleSendToFiles}
+                    >
+                      Send to My Files
+                    </Button>
                   </div>
-                  <Button
-                    type="primary"
-                    size="large"
-                    style={{
-                      backgroundColor: '#70C73C',
-                      borderRadius: '1rem',
-                      marginTop: '1rem',
-                    }}
-                    onClick={handleSendToFiles}
-                  >
-                    Send to My Files
-                  </Button>
                   </>
                 ) : (
                   <div style={{ textAlign: 'center', color: '#888', padding: '2rem', fontSize: '1.2rem' }}>
