@@ -182,6 +182,7 @@ export function GroupDetail() {
         id: d.id,
         ...(d.data() as Omit<SentInvite, 'id'>),
       }));
+
       setSentInvites(arr);
     });
     return unsub;

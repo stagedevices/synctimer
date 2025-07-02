@@ -21,6 +21,7 @@ import {
   where,
   serverTimestamp,
   getDoc,
+
   type Timestamp,
 } from 'firebase/firestore';
 
@@ -107,12 +108,14 @@ export function Groups() {
     const q = query(
       collectionGroup(db, 'invites'),
       where('targetUid', '==', uid),
+
       where('invitedBy', '!=', uid),
     );
     const unsub = onSnapshot(q, async snap => {
       const arr: Invite[] = [];
       for (const d of snap.docs) {
         const data = d.data() as { invitedBy: string; invitedAt: Timestamp; groupId?: string };
+
         const groupId = d.ref.parent.parent?.id;
         if (!groupId) continue;
         // Fetch group and inviter info
