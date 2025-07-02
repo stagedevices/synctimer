@@ -27,7 +27,6 @@ import { useUserSearch } from '../hooks/useUserSearch';
 import type { UserInfo } from '../hooks/useFriends';
 
 export function Contacts() {
-  const uid = auth.currentUser?.uid;
   const reduce = useReducedMotion() ?? false;
   const {
     contacts,
@@ -47,6 +46,7 @@ export function Contacts() {
   const [assignContact, setAssignContact] = useState<string | null>(null);
 
   const sendRequest = async () => {
+    const uid = auth.currentUser?.uid;
     if (!uid || !selected) return;
     if (selected.id === uid) {
       message.error("Can't add yourself");
@@ -73,6 +73,7 @@ export function Contacts() {
   };
 
   const accept = async (other: UserInfo) => {
+    const uid = auth.currentUser?.uid;
     if (!uid) return;
     try {
       await setDoc(doc(db, 'users', uid, 'contacts', other.id), {});
@@ -86,6 +87,7 @@ export function Contacts() {
   };
 
   const decline = async (other: UserInfo) => {
+    const uid = auth.currentUser?.uid;
     if (!uid) return;
     try {
       await deleteDoc(doc(db, 'users', uid, 'incomingRequests', other.id));
@@ -96,6 +98,7 @@ export function Contacts() {
   };
 
   const cancel = async (other: UserInfo) => {
+    const uid = auth.currentUser?.uid;
     if (!uid) return;
     try {
       await deleteDoc(doc(db, 'users', uid, 'outgoingRequests', other.id));
@@ -106,6 +109,7 @@ export function Contacts() {
   };
 
   const remove = async (other: UserInfo) => {
+    const uid = auth.currentUser?.uid;
     if (!uid) return;
     Modal.confirm({
       title: 'Remove contact?',
