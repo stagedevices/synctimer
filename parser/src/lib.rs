@@ -1,6 +1,6 @@
+use roxmltree::Document;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use roxmltree::Document;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Event {
@@ -13,17 +13,25 @@ pub struct Event {
 
 pub fn parse_musicxml(xml: &str) -> anyhow::Result<Vec<Event>> {
     // Use roxmltree to easily traverse the MusicXML document
-    let doc = Document::parse(xml)?;
+    let doc = Document::parse_with_options(
+        xml,
+        roxmltree::ParsingOptions {
+            allow_dtd: true,
+            ..Default::default()
+        },
+    )?;
 
     // Build part-name map
     // Map part IDs (e.g. "P1") to their human-readable names (e.g. "Violin I")
     let mut part_names: HashMap<String, String> = HashMap::new();
     if let Some(part_list) = doc.descendants().find(|n| n.has_tag_name("part-list")) {
-        for score_part in part_list.children().filter(|n| n.has_tag_name("score-part")) {
+        for score_part in part_list
+            .children()
+            .filter(|n| n.has_tag_name("score-part"))
+        {
             if let Some(id) = score_part.attribute("id") {
-                if let Some(name_node) = score_part
-                    .children()
-                    .find(|c| c.has_tag_name("part-name"))
+                if let Some(name_node) = score_part.children().find(|c| c.has_tag_name("part-name"))
+
                 {
                     if let Some(name) = name_node.text() {
                         part_names.insert(id.to_string(), name.to_string());
