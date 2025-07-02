@@ -4,32 +4,27 @@ import { Groups } from '../src/components/Groups';
 import { MemoryRouter } from 'react-router-dom';
 
 const mockOnSnapshot = jest.fn();
-const mockSetDoc = jest.fn(() => Promise.resolve());
-const mockUpdateDoc = jest.fn(() => Promise.resolve());
+const mockBatchSet = jest.fn();
+const mockBatchDelete = jest.fn();
+const mockBatchCommit = jest.fn(() => Promise.resolve());
 const mockDeleteDoc = jest.fn(() => Promise.resolve());
 const mockGetDoc = jest.fn();
 
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn(() => ({})),
+  collectionGroup: jest.fn(() => ({})),
   query: jest.fn(),
   where: jest.fn(),
+  orderBy: jest.fn(),
   onSnapshot: (...args: any[]) => mockOnSnapshot(...args),
   doc: jest.fn(),
   getDoc: (...args: any[]) => mockGetDoc(...args),
-  setDoc: () => {
-    mockSetDoc();
-    return Promise.resolve();
-  },
-  updateDoc: () => {
-    mockUpdateDoc();
-    return Promise.resolve();
-  },
+  writeBatch: () => ({ set: mockBatchSet, delete: mockBatchDelete, commit: mockBatchCommit }),
   deleteDoc: () => {
     mockDeleteDoc();
     return Promise.resolve();
   },
   serverTimestamp: jest.fn(() => ({})),
-  increment: jest.fn(() => ({})),
 }));
 
 jest.mock('../src/lib/firebase', () => ({ auth: { currentUser: { uid: 'u1' } }, db: {} }));
@@ -67,7 +62,7 @@ test('accept invite updates Firestore and UI', async () => {
       docs: [
         {
           id: 'inv1',
-          data: () => ({ groupId: 'g1', invitedBy: 'u2', inviteAt: { toDate: () => new Date() } }),
+          data: () => ({ groupId: 'g1', inviterUid: 'u2', invitedAt: { toDate: () => new Date() } }),
         },
       ],
     });
@@ -77,9 +72,9 @@ test('accept invite updates Firestore and UI', async () => {
   await act(async () => {
     fireEvent.click(btn);
   });
-  expect(mockSetDoc).toHaveBeenCalled();
-  expect(mockUpdateDoc).toHaveBeenCalled();
-  expect(mockDeleteDoc).toHaveBeenCalled();
+  expect(mockBatchSet).toHaveBeenCalled();
+  expect(mockBatchDelete).toHaveBeenCalled();
+  expect(mockBatchCommit).toHaveBeenCalled();
   expect(screen.queryByText('Group')).not.toBeInTheDocument();
 });
 

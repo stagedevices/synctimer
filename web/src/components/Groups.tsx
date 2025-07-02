@@ -12,6 +12,7 @@ import { SendFilesModal } from './SendFilesModal';
 import { AssignmentModal } from './AssignmentModal';
 import {
   collection,
+  collectionGroup,
   onSnapshot,
   addDoc,
   doc,
@@ -19,11 +20,10 @@ import {
   deleteDoc,
   query,
   where,
+  orderBy,
   serverTimestamp,
   getDoc,
-  updateDoc,
-  increment,
-
+  writeBatch,
   type Timestamp,
 } from 'firebase/firestore';
 
@@ -43,8 +43,8 @@ interface Group {
 interface Invite {
   id: string;
   groupId: string;
-  invitedByUid: string;
-  inviteAt: Timestamp;
+  inviterUid: string;
+  invitedAt: Timestamp;
   groupName: string;
   inviterName: string;
 }
@@ -106,28 +106,33 @@ export function Groups() {
   // 1) Subscribe to pending invites
   useEffect(() => {
     if (!uid) return;
-    const q = collection(db, 'users', uid, 'groupInvites');
+    const q = query(
+      collectionGroup(db, 'invites'),
+      where('inviteeUid', '==', uid),
+      orderBy('invitedAt', 'desc')
+    );
     const unsub = onSnapshot(q, async snap => {
       const arr: Invite[] = [];
       for (const d of snap.docs) {
         const data = d.data() as {
           groupId: string;
-          invitedBy: string;
-          inviteAt: Timestamp;
+          inviterUid: string;
+          invitedAt: Timestamp;
         };
-        const groupSnap = await getDoc(doc(db, 'groups', data.groupId));
+        const groupId = data.groupId;
+        const groupSnap = await getDoc(doc(db, 'groups', groupId));
         const gName = groupSnap.exists()
           ? ((groupSnap.data() as { name?: string }).name || '')
           : '';
-        const inviterSnap = await getDoc(doc(db, 'users', data.invitedBy, 'profile'));
+        const inviterSnap = await getDoc(doc(db, 'users', data.inviterUid, 'profile'));
         const iName = inviterSnap.exists()
           ? ((inviterSnap.data() as { displayName?: string }).displayName || 'Unknown')
           : 'Unknown';
         arr.push({
           id: d.id,
-          groupId: data.groupId,
-          invitedByUid: data.invitedBy,
-          inviteAt: data.inviteAt,
+          groupId,
+          inviterUid: data.inviterUid,
+          invitedAt: data.invitedAt,
           groupName: gName,
           inviterName: iName,
         });
@@ -185,14 +190,10 @@ export function Groups() {
     if (!uid) return;
     setBusyIds(b => ({ ...b, [inv.id]: true }));
     try {
-      await setDoc(doc(db, 'groups', inv.groupId, 'members', uid), {
-        role: 'member',
-        joinedAt: serverTimestamp(),
-      });
-      await updateDoc(doc(db, 'groups', inv.groupId), {
-        memberCount: increment(1),
-      });
-      await deleteDoc(doc(db, 'users', uid, 'groupInvites', inv.id));
+      const batch = writeBatch(db);
+      batch.set(doc(db, 'groups', inv.groupId, 'members', uid), { role: 'member' });
+      batch.delete(doc(db, 'groups', inv.groupId, 'invites', inv.id));
+      await batch.commit();
       setInvites(prev => prev.filter(i => i.id !== inv.id));
       toast.success(`Joined “${inv.groupName}”`);
     } catch (e) {
@@ -206,7 +207,7 @@ export function Groups() {
     if (!uid) return;
     setBusyIds(b => ({ ...b, [inv.id]: true }));
     try {
-      await deleteDoc(doc(db, 'users', uid, 'groupInvites', inv.id));
+      await deleteDoc(doc(db, 'groups', inv.groupId, 'invites', inv.id));
       setInvites(prev => prev.filter(i => i.id !== inv.id));
       toast.info(`Invite to “${inv.groupName}” rejected`);
     } catch (e) {
@@ -220,10 +221,8 @@ export function Groups() {
   return (
     <>
       {/* 2) Render Invitations Card */}
-      <Card title="Invitations" className="glass-card" style={{ margin: '2rem' }}>
-        {invites.length === 0 ? (
-          <div>No pending group invites.</div>
-        ) : (
+      {invites.length > 0 && (
+        <Card title="Invitations" className="glass-card" style={{ margin: '2rem' }}>
           <List
             dataSource={invites}
             renderItem={inv => (
@@ -255,14 +254,14 @@ export function Groups() {
                 >
                   <List.Item.Meta
                     title={inv.groupName}
-                    description={`Invited by ${inv.inviterName} · ${formatDistanceToNow(inv.inviteAt.toDate(), { addSuffix: true })}`}
+                    description={`Invited by ${inv.inviterName} · ${formatDistanceToNow(inv.invitedAt.toDate(), { addSuffix: true })}`}
                   />
                 </List.Item>
               </motion.div>
             )}
           />
-        )}
-      </Card>
+        </Card>
+      )}
       <Card title="My Groups" className="glass-card" style={{ margin: '2rem' }}>
       <Button onClick={() => setModalOpen(true)} style={{ marginBottom: 16 }}>
         Create Group
