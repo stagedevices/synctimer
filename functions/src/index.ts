@@ -196,6 +196,7 @@ export const purgeDeletedGroups = onSchedule("every 24 hours", async () => {
   await Promise.all(snap.docs.map((d) => d.ref.delete()));
 });
 
+
 // Firestore trigger: update memberCount for tags
 export const onTagMemberWrite = onDocumentWritten(
   "tags/{tagId}/members/{uid}",
@@ -238,6 +239,7 @@ export const onAssignmentCreate = onDocumentCreated(
     if (!snap) return null;
     const data = snap.data() as admin.firestore.DocumentData;
     const id = event.params.assignmentId;
+
     for (const rec of data.recipients || []) {
       if (rec.type === "user") {
         await db

@@ -26,6 +26,7 @@ export const initiateEmailChange = onCall(
     const uid = request.auth?.uid;
     const { newEmail } = request.data as { newEmail?: string };
 
+
     if (!uid) {
       throw new HttpsError(
         "unauthenticated",
