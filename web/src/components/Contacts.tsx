@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ChangeEvent } from 'react';
 import {
   Card,
   List,
@@ -21,6 +21,7 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { removeFriend } from '../lib/friends';
+import { toast } from '../lib/toast';
 import { useFriends } from '../hooks/useFriends';
 import { useUserSearch } from '../hooks/useUserSearch';
 import type { UserInfo } from '../hooks/useFriends';
@@ -109,15 +110,22 @@ export function Contacts() {
     Modal.confirm({
       title: 'Remove contact?',
       okButtonProps: { danger: true },
-      onOk: () => {
+      onOk: async () => {
         setRemoving(other.id);
-        return removeFriend(other.id)
-          .then(() => {
-            removeLocal(other.id);
-            return refetch();
-          })
-          .finally(() => setRemoving(null));
-
+        // Optimistically remove the friend from local state
+        removeLocal(other.id);
+        try {
+          await removeFriend(other.id);
+          toast.success(
+            `Removed ${other.displayName ?? other.email ?? 'user'} from your contacts.`,
+          );
+        } catch (e: unknown) {
+          // If an error occurs, restore the contact list
+          await refetch();
+          toast.error((e as Error).message || String(e));
+        } finally {
+          setRemoving(null);
+        }
       },
     });
   };
@@ -261,7 +269,7 @@ export function Contacts() {
         <Input
           placeholder="Add users..."
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
         />
         {search && results.length > 0 && (
           <List
