@@ -31,8 +31,6 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
-import { useUserSearch } from '../hooks/useUserSearch';
-import type { UserInfo } from '../hooks/useFriends';
 import { toast } from '../lib/toast';
 import { SendFilesModal } from './SendFilesModal';
 
@@ -71,6 +69,13 @@ interface Announcement {
   authorPhotoURL?: string | null;
 }
 
+interface SentInvite {
+  id: string;
+  invitedBy: string;
+  invitedAt?: Timestamp;
+  targetUid: string;
+}
+
 
 export function GroupDetail() {
   const { groupId } = useParams<{ groupId: string }>();
@@ -84,13 +89,12 @@ export function GroupDetail() {
 
   const [search, setSearch] = useState('');
   const [inviteTerm, setInviteTerm] = useState('');
-  const results = useUserSearch(inviteTerm);
-  const [inviting, setInviting] = useState<string | null>(null);
+  const [inviting, setInviting] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
   const [announceContent, setAnnounceContent] = useState('');
   const [posting, setPosting] = useState(false);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [sentInvites, setSentInvites] = useState<any[]>([]);
+  const [sentInvites, setSentInvites] = useState<SentInvite[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('members');
   const [safetyOn, setSafetyOn] = useState(false);
@@ -169,14 +173,15 @@ export function GroupDetail() {
     return unsub;
   }, [groupId]);
 
-  // 2️⃣ Invitations subcollection scaffolding
+  // Fetch pending invites
   useEffect(() => {
     if (!groupId) return;
     const q = collection(db, 'groups', groupId, 'invites');
     const unsub = onSnapshot(q, snap => {
-      const arr = snap.docs
-        .map(d => ({ id: d.id, ...(d.data() as any) }))
-        .filter(i => i.status === 'pending');
+      const arr: SentInvite[] = snap.docs.map(d => ({
+        id: d.id,
+        ...(d.data() as Omit<SentInvite, 'id'>),
+      }));
       setSentInvites(arr);
     });
     return unsub;
@@ -216,37 +221,36 @@ export function GroupDetail() {
     await deleteDoc(doc(db, 'users', id, 'groups', groupId));
   };
 
-  const inviteUser = async (userInfo: UserInfo) => {
-    if (!groupId || !uid) return;
-    setInviting(userInfo.id);
+  const inviteUser = async () => {
+    if (!groupId || !uid || !inviteTerm.trim()) return;
+    const handle = inviteTerm.trim().replace(/^@+/, '').toLowerCase();
+    setInviting(true);
     try {
-      // 2️⃣ Invitations subcollection scaffolding
-      const gRef = await addDoc(collection(db, 'groups', groupId, 'invites'), {
-        inviterUid: uid,
-        inviteeEmailOrUid: inviteTerm,
-        inviteeUid: userInfo.id,
-        createdAt: serverTimestamp(),
-        status: 'pending',
-      });
-      await setDoc(doc(db, 'users', userInfo.id, 'invites', gRef.id), {
-        groupId,
-        invitedByUid: uid,
+      // Lookup target UID
+      const snap = await getDoc(doc(db, 'usernames', handle));
+      if (!snap.exists()) {
+        toast.error(`User '${handle}' not found.`);
+        return;
+      }
+      const targetUid = (snap.data() as { uid: string }).uid;
+      // Send invite to Firestore
+      await setDoc(doc(db, 'groups', groupId, 'invites', targetUid), {
+        invitedBy: uid,
         invitedAt: serverTimestamp(),
+        targetUid,
       });
-      toast.success(`Invitation sent to ${userInfo.displayName || userInfo.email}`);
+      toast.success(`Invitation sent to @${handle}`);
+      setInviteTerm('');
     } catch (e) {
       toast.error(`Could not send invite: ${(e as Error).message}`);
     } finally {
-      setInviting(null);
+      setInviting(false);
     }
   };
 
-  const revokeInvite = async (invId: string, inviteeUid?: string) => {
+  const revokeInvite = async (inviteeUid: string) => {
     if (!groupId) return;
-    await deleteDoc(doc(db, 'groups', groupId, 'invites', invId));
-    if (inviteeUid) {
-      await deleteDoc(doc(db, 'users', inviteeUid, 'invites', invId)).catch(() => {});
-    }
+    await deleteDoc(doc(db, 'groups', groupId, 'invites', inviteeUid));
   };
 
   const postAnnouncement = async () => {
@@ -391,51 +395,26 @@ export function GroupDetail() {
       animate="show"
     >
       <Input
-        placeholder="Add users by email or username…"
+        placeholder="Invite by handle…"
         style={{ marginBottom: 8 }}
         value={inviteTerm}
         onChange={e => setInviteTerm(e.target.value)}
+        onPressEnter={inviteUser}
+        disabled={inviting}
       />
-      {inviteTerm && (
-        <List
-          style={{ marginBottom: 8 }}
-          dataSource={results}
-          renderItem={u => (
-            <List.Item
-              actions={[
-                <Button
-                  key="inv"
-                  type="primary"
-                  loading={inviting === u.id}
-                  onClick={() => inviteUser(u)}
-                >
-                  Invite
-                </Button>,
-              ]}
-            >
-              <List.Item.Meta
-                avatar={<Avatar src={u.photoURL} />}
-                title={u.displayName || u.email}
-                description={`@${u.handle || ''}`}
-              />
-            </List.Item>
-          )}
-        />
-      )}
+      <Button type="primary" onClick={inviteUser} loading={inviting} style={{ marginBottom: 16 }}>
+        Invite
+      </Button>
       <List
         header="Pending Invites"
         dataSource={sentInvites}
         renderItem={inv => (
           <List.Item
-            actions={[
-              <Button key="rev" danger onClick={() => revokeInvite(inv.id, inv.inviteeUid)}>
-                Revoke
-              </Button>,
-            ]}
+            actions={[<Button key="rev" danger onClick={() => revokeInvite(inv.id)}>Revoke</Button>]}
           >
             <List.Item.Meta
-              title={inv.inviteeEmailOrUid}
-              description={inv.createdAt?.toDate().toLocaleDateString()}
+              title={`@${inv.id}`}
+              description={inv.invitedAt?.toDate().toLocaleDateString()}
             />
           </List.Item>
         )}

@@ -17,11 +17,10 @@ import {
   setDoc,
   deleteDoc,
   query,
+  collectionGroup,
   where,
   serverTimestamp,
   getDoc,
-  updateDoc,
-  increment,
   type Timestamp,
 } from 'firebase/firestore';
 
@@ -104,21 +103,31 @@ export function Groups() {
 
   useEffect(() => {
     if (!uid) return;
-    const q = collection(db, 'users', uid, 'invites');
+    // Fetch pending invites
+    const q = query(
+      collectionGroup(db, 'invites'),
+      where('targetUid', '==', uid),
+      where('invitedBy', '!=', uid),
+    );
     const unsub = onSnapshot(q, async snap => {
       const arr: Invite[] = [];
       for (const d of snap.docs) {
-        const data = d.data() as Omit<Invite, 'id'>;
-        const groupSnap = await getDoc(doc(db, 'groups', data.groupId));
+        const data = d.data() as { invitedBy: string; invitedAt: Timestamp; groupId?: string };
+        const groupId = d.ref.parent.parent?.id;
+        if (!groupId) continue;
+        // Fetch group and inviter info
+        const groupSnap = await getDoc(doc(db, 'groups', groupId));
         const gData = groupSnap.exists() ? (groupSnap.data() as { name?: string }) : {};
         const groupName = gData.name ?? '';
-        const inviterSnap = await getDoc(doc(db, 'users', data.invitedByUid, 'profile'));
+        const inviterSnap = await getDoc(doc(db, 'users', data.invitedBy, 'profile'));
         const inviterData = inviterSnap.exists()
           ? (inviterSnap.data() as { displayName?: string; pronouns?: string; photoURL?: string })
           : {};
         arr.push({
           id: d.id,
-          ...data,
+          groupId,
+          invitedByUid: data.invitedBy,
+          invitedAt: data.invitedAt,
           groupName,
           inviterName: inviterData.displayName || 'Unknown',
           inviterPronouns: inviterData.pronouns || 'they/them',
@@ -176,21 +185,24 @@ export function Groups() {
   const acceptInvite = async (inv: Invite) => {
     if (!uid) return;
     try {
-      await deleteDoc(doc(db, 'users', uid, 'invites', inv.id));
-      await setDoc(doc(db, 'groups', inv.groupId, 'members', uid), { role: 'member' });
-      await setDoc(doc(db, 'users', uid, 'groups', inv.groupId), { role: 'member', joinedAt: serverTimestamp() });
-      await updateDoc(doc(db, 'groups', inv.groupId), { memberCount: increment(1) });
-      toast.success('Joined group');
+      // Accept invite: add membership then remove invite
+      await setDoc(doc(db, 'groups', inv.groupId, 'members', uid), {
+        role: 'member',
+        joinedAt: serverTimestamp(),
+      });
+      await deleteDoc(doc(db, 'groups', inv.groupId, 'invites', uid));
+      toast.success(`You've joined ${inv.groupName}.`);
     } catch (e) {
       toast.error((e as Error).message);
     }
   };
 
+  // Decline invite handler
   const declineInvite = async (inv: Invite) => {
     if (!uid) return;
     try {
-      await deleteDoc(doc(db, 'users', uid, 'invites', inv.id));
-      toast.info('Invite declined');
+      await deleteDoc(doc(db, 'groups', inv.groupId, 'invites', uid));
+      toast.info(`Invite to ${inv.groupName} declined.`);
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -200,7 +212,7 @@ export function Groups() {
   return (
     <>
       {invites.length > 0 && (
-        <Card title="Group Invites" className="glass-card" style={{ margin: '2rem' }}>
+        <Card title="Invitations" className="glass-card" style={{ margin: '2rem' }}>
           <List
             dataSource={invites}
             renderItem={inv => (
