@@ -28,10 +28,11 @@ export async function storeParts(
     createdAt: FieldValue.serverTimestamp(),
     ownerUid,
   });
-  const events = YAML.parse(yamlText) as Array<any>;
+  interface EventData { bar?: number; instruments?: string[] }
+  const events = YAML.parse(yamlText) as EventData[];
   const measures = Math.max(
     0,
-    ...events.map((e: any) => e.bar ?? 0),
+    ...events.map((e) => e.bar ?? 0),
   );
   await fileRef.collection("parts").add({
     partName: "Full Score",
@@ -42,11 +43,13 @@ export async function storeParts(
   });
   const instruments = Array.from(
     new Set(
-      events.flatMap((e: any) => (e.instruments ? e.instruments[0] : null)).filter(Boolean),
+      events
+        .flatMap((e) => (e.instruments ? e.instruments[0] : null))
+        .filter(Boolean),
     ),
-  );
+  ) as string[];
   for (const inst of instruments) {
-    const partEvents = events.filter((e: any) =>
+    const partEvents = events.filter((e) =>
       (e.instruments || []).includes(inst),
     );
     const partYaml = YAML.stringify(partEvents);
@@ -69,7 +72,7 @@ function getUidFromHeader(req: functions.https.Request): string | null {
 export const parseUpload = functions.https.onRequest((req, res) => {
   corsHandler(req, res, async () => {
     const uid = getUidFromHeader(req);
-    const xml = req.rawBody!;
+    const xml = req.rawBody ?? Buffer.from("");
     let yaml: string;
     let parserRes: Response;
 
@@ -105,7 +108,7 @@ export const parseUpload = functions.https.onRequest((req, res) => {
 
       // 4) return
       res.status(parserRes.ok ? 200 : 500).send(yaml);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("parseUpload error:", e);
       const msg = e instanceof Error ? e.message : String(e);
       // log failure
@@ -141,7 +144,7 @@ export const linkDevice = functions.https.onRequest((req, res) => {
           createdAt: FieldValue.serverTimestamp(),
         });
       res.json({ deviceId: doc.id, token });
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("linkDevice error:", e);
       const msg = e instanceof Error ? e.message : String(e);
       res.status(500).send(msg);
@@ -165,7 +168,7 @@ export const getLinkToken = functions.https.onRequest((req, res) => {
         .doc(token)
         .set({ createdAt: FieldValue.serverTimestamp() });
       res.json({ token });
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("getLinkToken error:", e);
       const msg = e instanceof Error ? e.message : String(e);
       res.status(500).send(msg);
@@ -174,15 +177,20 @@ export const getLinkToken = functions.https.onRequest((req, res) => {
 });
 
 // 1️⃣ Soft-delete flag on group documents
-export const purgeDeletedGroups = functions.pubsub.schedule('every 24 hours').onRun(async () => {
-  const cutoff = Date.now() - 15 * 24 * 60 * 60 * 1000;
-  const snap = await db
-    .collection('groups')
-    .where('isDeleted', '==', true)
-    .where('deletedAt', '<=', admin.firestore.Timestamp.fromMillis(cutoff))
-    .get();
-  await Promise.all(snap.docs.map(d => d.ref.delete()));
-});
+export const purgeDeletedGroups =
+  functions.pubsub.schedule("every 24 hours").onRun(async () => {
+    const cutoff = Date.now() - 15 * 24 * 60 * 60 * 1000;
+    const snap = await db
+      .collection("groups")
+      .where("isDeleted", "==", true)
+      .where(
+        "deletedAt",
+        "<=",
+        admin.firestore.Timestamp.fromMillis(cutoff),
+      )
+      .get();
+    await Promise.all(snap.docs.map((d) => d.ref.delete()));
+  });
 
 // Firestore trigger: update memberCount for tags
 export const onTagMemberWrite = functions.firestore
@@ -220,7 +228,7 @@ export const onGroupMemberWrite = functions.firestore
 export const onAssignmentCreate = functions.firestore
   .document("assignments/{assignmentId}")
   .onCreate(async (snap, context) => {
-    const data = snap.data() as any;
+    const data = snap.data() as admin.firestore.DocumentData;
     const id = context.params.assignmentId;
     for (const rec of data.recipients || []) {
       if (rec.type === "user") {
@@ -254,7 +262,11 @@ export const onAssignmentCreate = functions.firestore
               .doc(m.id)
               .collection("assignments")
               .doc(id)
-              .set({ ...data, groupId: rec.groupId, assignmentName: rec.assignmentName })
+              .set({
+                ...data,
+                groupId: rec.groupId,
+                assignmentName: rec.assignmentName,
+              })
           )
         );
         await Promise.all(
