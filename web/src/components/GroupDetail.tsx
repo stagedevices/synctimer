@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -16,6 +16,7 @@ import { cardVariants, motion as m } from '../theme/motion';
 import {
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   collection,
   setDoc,
@@ -27,8 +28,8 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { useUserSearch } from '../hooks/useUserSearch';
+import type { UserInfo } from '../hooks/useFriends';
 import { toast } from '../lib/toast';
-import { shake } from '../lib/animations';
 
 interface Group {
   id: string;
@@ -48,16 +49,10 @@ interface MemberInfo {
   displayName?: string;
   photoURL?: string;
   handle?: string;
+  pronouns?: string;
+  tags?: string[];
 }
 
-interface InviteInfo {
-  id: string;
-  type: 'email' | 'username';
-  value: string;
-  invitedBy: string;
-  createdAt: Timestamp;
-  status: 'pending' | 'accepted' | 'declined';
-}
 
 export function GroupDetail() {
   const { groupId } = useParams<{ groupId: string }>();
@@ -67,14 +62,12 @@ export function GroupDetail() {
 
   const [group, setGroup] = useState<Group | null>(null);
   const [members, setMembers] = useState<MemberInfo[]>([]);
-  const [invites, setInvites] = useState<InviteInfo[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState('');
   const [inviteTerm, setInviteTerm] = useState('');
   const results = useUserSearch(inviteTerm);
-
-  const sendBtnRef = useRef<HTMLButtonElement>(null);
+  const [inviting, setInviting] = useState<string | null>(null);
 
   const isOwner = uid && uid === group?.managerUid;
   const myRole = members.find(m => m.id === uid)?.role;
@@ -96,22 +89,25 @@ export function GroupDetail() {
       const arr: MemberInfo[] = [];
       for (const d of snap.docs) {
         const u = await getDoc(doc(db, 'users', d.id));
-        const data = u.exists() ? u.data() : {};
-        arr.push({ id: d.id, ...(d.data() as Omit<MemberInfo, 'id' | 'displayName' | 'photoURL' | 'handle'>), ...(data as any) });
+        const data = u.exists()
+          ? (u.data() as { displayName?: string; photoURL?: string; handle?: string; pronouns?: string })
+          : {};
+        const tagSnap = await getDocs(collection(db, 'users', d.id, 'tags'));
+        const tags = tagSnap.docs.map(t => t.id);
+        arr.push({
+          id: d.id,
+          ...(d.data() as Omit<MemberInfo, 'id' | 'displayName' | 'photoURL' | 'handle' | 'pronouns' | 'tags'>),
+          ...data,
+          tags,
+        });
       }
       arr.sort((a,b)=>a.displayName?.localeCompare(b.displayName||'')||0);
       setMembers(arr);
     });
-    const iRef = collection(db, 'groups', groupId, 'invites');
-    const unsubInvites = onSnapshot(iRef, snap => {
-      const arr = snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<InviteInfo,'id'>) }));
-      setInvites(arr);
-      setLoading(false);
-    });
+    setLoading(false);
     return () => {
       unsubGroup();
       unsubMembers();
-      unsubInvites();
     };
   }, [groupId, navigate]);
 
@@ -137,56 +133,27 @@ export function GroupDetail() {
     await deleteDoc(doc(db, 'users', id, 'groups', groupId));
   };
 
-  const sendInvite = async () => {
-    if (!groupId || !uid || !inviteTerm.trim()) return;
-    const value = inviteTerm.trim();
-    const type = value.includes('@') ? 'email' : 'username';
+  const inviteUser = async (userInfo: UserInfo) => {
+    if (!groupId || !uid) return;
+    setInviting(userInfo.id);
     try {
-      await addDoc(collection(db, 'groups', groupId, 'invites'), {
-        type,
-        value,
-        invitedBy: uid,
-        createdAt: serverTimestamp(),
-        status: 'pending',
+      await addDoc(collection(db, 'users', userInfo.id, 'invites'), {
+        groupId,
+        invitedByUid: uid,
+        invitedAt: serverTimestamp(),
       });
-      toast.success(`Invite sent to ${value}`);
-      setInviteTerm('');
+      toast.success(`Invitation sent to ${userInfo.displayName || userInfo.email}`);
     } catch (e) {
       toast.error((e as Error).message);
+    } finally {
+      setInviting(null);
     }
   };
 
-  const cancelInvite = async (id: string) => {
-    if (!groupId) return;
-    await updateDoc(doc(db, 'groups', groupId, 'invites', id), { status: 'declined' });
-    toast.info('Invite canceled');
-  };
-
-  const approveRequest = async (invite: InviteInfo) => {
-    if (!groupId) return;
-    const memberId = invite.value;
-    await setDoc(doc(db, 'groups', groupId, 'members', memberId), {
-      role: 'member',
-      joinedAt: serverTimestamp(),
-    });
-    await setDoc(doc(db, 'users', memberId, 'groups', groupId), {
-      role: 'member',
-      joinedAt: serverTimestamp(),
-    });
-    await updateDoc(doc(db, 'groups', groupId, 'invites', invite.id), { status: 'accepted' });
-    toast.success('Member added');
-  };
-
-  const declineRequest = async (invite: InviteInfo) => {
-    if (!groupId) return;
-    await updateDoc(doc(db, 'groups', groupId, 'invites', invite.id), { status: 'declined' });
-    toast.info('Request declined');
-  };
 
   const archiveGroup = async () => {
     if (!groupId) return;
     if (!isOwner) {
-      shake(sendBtnRef.current);
       toast.error('Only owner can delete the group.');
       return;
     }
@@ -209,8 +176,6 @@ export function GroupDetail() {
     );
   });
 
-  const pendingInvites = invites.filter(i => i.status === 'pending' && !(i.type === 'username' && i.value === i.invitedBy));
-  const joinRequests = invites.filter(i => i.status === 'pending' && i.type === 'username' && i.value === i.invitedBy);
 
   const membersTab = (
     <motion.div
@@ -261,12 +226,21 @@ export function GroupDetail() {
                 <Card className="glass-card" style={{ width: '100%' }} actions={actions}>
                   <Card.Meta
                     avatar={<Avatar src={memb.photoURL} />}
-                    title={memb.displayName || memb.id}
-                    description={
+                    title={
                       <span>
-                        @{memb.handle || ''}{' '}
+                        {memb.displayName || memb.id}{' '}
                         <Tag color={memb.role === 'owner' ? 'gold' : memb.role === 'moderator' ? 'blue' : undefined}>{memb.role}</Tag>
                       </span>
+                    }
+                    description={
+                      <div>
+                        <div>{memb.pronouns || 'they/them'}</div>
+                        <div>
+                          {memb.tags?.map(t => (
+                            <Tag key={t} style={{ marginRight: 4 }}>#{t}</Tag>
+                          ))}
+                        </div>
+                      </div>
                     }
                   />
                 </Card>
@@ -285,50 +259,36 @@ export function GroupDetail() {
       animate="show"
     >
       <Input
-        placeholder="Email or username"
+        placeholder="Search users"
         style={{ marginBottom: 8 }}
         value={inviteTerm}
         onChange={e => setInviteTerm(e.target.value)}
       />
-      {inviteTerm && results.length > 0 && (
+      {inviteTerm && (
         <List
           style={{ marginBottom: 8 }}
           dataSource={results}
-          bordered
           renderItem={u => (
-            <List.Item onClick={() => { setInviteTerm(u.handle || u.email || ''); }} style={{ cursor: 'pointer' }}>
-              <List.Item.Meta avatar={<Avatar src={u.photoURL} />} title={u.displayName || u.email} description={`@${u.handle || ''}`} />
+            <List.Item
+              actions={[
+                <Button
+                  key="inv"
+                  type="primary"
+                  loading={inviting === u.id}
+                  onClick={() => inviteUser(u)}
+                >
+                  Invite
+                </Button>,
+              ]}
+            >
+              <List.Item.Meta
+                avatar={<Avatar src={u.photoURL} />}
+                title={u.displayName || u.email}
+                description={`@${u.handle || ''}`}
+              />
             </List.Item>
           )}
         />
-      )}
-      <Button type="primary" onClick={sendInvite} ref={sendBtnRef} style={{ marginBottom: 16 }}>
-        Send
-      </Button>
-      <h4>Pending Invites</h4>
-      <List
-        dataSource={pendingInvites}
-        renderItem={inv => (
-          <List.Item actions={[<Button key="cancel" onClick={() => cancelInvite(inv.id)}>Cancel</Button>]}> {inv.value} </List.Item>
-        )}
-      />
-      {group.visibility === 'request-to-join' && (
-        <>
-          <h4 style={{ marginTop: 16 }}>Join Requests</h4>
-          <List
-            dataSource={joinRequests}
-            renderItem={inv => (
-              <List.Item
-                actions={[
-                  <Button key="app" type="primary" onClick={() => approveRequest(inv)}>Approve</Button>,
-                  <Button key="decl" danger onClick={() => declineRequest(inv)}>Decline</Button>,
-                ]}
-              >
-                {inv.value}
-              </List.Item>
-            )}
-          />
-        </>
       )}
     </motion.div>
   );
