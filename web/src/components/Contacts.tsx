@@ -11,6 +11,7 @@ import {
   message,
 } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
+import { AssignmentModal } from './AssignmentModal';
 import { motion, useReducedMotion } from 'framer-motion';
 import { cardVariants, motion as m } from '../theme/motion';
 import {
@@ -42,6 +43,7 @@ export function Contacts() {
   const [selected, setSelected] = useState<UserInfo | null>(null);
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
+  const [assignContact, setAssignContact] = useState<string | null>(null);
 
   const sendRequest = async () => {
     if (!uid || !selected) return;
@@ -139,10 +141,13 @@ export function Contacts() {
                   <Card
                     className="glass-card"
                     style={{ width: '100%' }}
-                    actions={[
-                      <Button
-                        key="del"
-                        danger
+                  actions={[
+                    <Button key="send" onClick={() => setAssignContact(c.id)}>
+                      Send Parts ➔
+                    </Button>,
+                    <Button
+                      key="del"
+                      danger
                         icon={<DeleteOutlined />}
                         disabled={removing === c.id}
                         onClick={() => remove(c)}
@@ -286,6 +291,14 @@ export function Contacts() {
       >
         <p>@{selected?.handle}</p>
       </Modal>
+      {assignContact && (
+        <AssignmentModal
+          open={!!assignContact}
+          onClose={() => setAssignContact(null)}
+          context="contacts"
+          entityId={assignContact}
+        />
+      )}
     </Card>
   );
 }

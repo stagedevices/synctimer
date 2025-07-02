@@ -8,6 +8,7 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '../lib/firebase';
 import { toast } from '../lib/toast';
 import { SendFilesModal } from './SendFilesModal';
+import { AssignmentModal } from './AssignmentModal';
 import {
   collection,
   onSnapshot,
@@ -55,6 +56,7 @@ export function Groups() {
   const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(true);
   const [sendGroupId, setSendGroupId] = useState<string | null>(null);
+  const [assignGroupId, setAssignGroupId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [values, setValues] = useState({
@@ -236,6 +238,11 @@ export function Groups() {
                         Send Files
                       </Button>
                     ),
+                    (g.role === 'owner' || g.role === 'moderator') && (
+                      <Button key="assign" onClick={e => { e.stopPropagation(); setAssignGroupId(g.id); }}>
+                        Assign to Group ➔
+                      </Button>
+                    ),
                     <Button
                       key="view"
                       type="link"
@@ -294,6 +301,14 @@ export function Groups() {
           open={!!sendGroupId}
           groupId={sendGroupId}
           onClose={() => setSendGroupId(null)}
+        />
+      )}
+      {assignGroupId && (
+        <AssignmentModal
+          open={!!assignGroupId}
+          onClose={() => setAssignGroupId(null)}
+          context="groups"
+          entityId={assignGroupId}
         />
       )}
     </Card>
