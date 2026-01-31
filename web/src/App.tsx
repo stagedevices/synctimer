@@ -17,6 +17,7 @@ import { TagDetail } from './components/TagDetail';
 import { Account as AccountProfile } from './components/Account';
 import { AccountLanding } from './pages/AccountLanding';
 import { VerifyEmail } from './pages/VerifyEmail';
+import { Press } from './pages/Press';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from './lib/firebase';
@@ -37,6 +38,7 @@ export function App() {
         <PageAnimator>
           <Routes>
           <Route path="/" element={<AccountLanding />} />
+          <Route path="/press" element={<Press />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route
             path="/account"
@@ -113,5 +115,4 @@ export function App() {
     </BrowserRouter>
   );
 }
-
 
