@@ -30,4 +30,11 @@ jobs:
                 npx firebase-tools hosting:channel:delete "$id" \
                   --project synctimer-dev-464400 --force --non-interactive || true
             done
-     
+      - name: Deploy preview via CLI
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/service-account.json
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SYNCTIMER_DEV }}
+        run: |
+          echo "$FIREBASE_SERVICE_ACCOUNT" > "$GOOGLE_APPLICATION_CREDENTIALS"
+          npx firebase-tools hosting:channel:deploy pr-${{ github.event.pull_request.number }} \
+            --expires 7d --project synctimer-dev-464400 --json
